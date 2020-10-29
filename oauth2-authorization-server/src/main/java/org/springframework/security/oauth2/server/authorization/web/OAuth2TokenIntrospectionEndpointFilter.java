@@ -45,6 +45,7 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMessageConverter;
+import org.springframework.security.oauth2.server.authorization.InvalidTokenException;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.TokenType;
@@ -59,6 +60,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.nimbusds.oauth2.sdk.TokenIntrospectionErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenIntrospectionResponse;
 import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
 
@@ -136,23 +138,30 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		// obtain access token
 		String token = request.getParameter("token");
 		String tokenTypeHint = request.getParameter("token_type_hint");
+		TokenIntrospectionResponse tokenIntrospectionResponse;
 
-		// get client from token
-		Optional<OAuth2Authorization> authorization = findAuthorizationByToken(token, tokenTypeHint);
+		try {
+			// get client from token
+			OAuth2Authorization authorization = findAuthorizationByToken(token, tokenTypeHint)
+					.orElseThrow(() -> new InvalidTokenException("Token not found"));
 
-		// check if token corresponds to authorized Client
-		RegisteredClient registeredClient = this.registeredClientRepository
-				.findByClientId(request.getParameter("client_id"));
+			// check if token corresponds to authorized Client
+			RegisteredClient registeredClient = this.registeredClientRepository
+					.findByClientId(request.getParameter("client_id"));
 
-		// check token validity
+			// check token validity
 
-		// if valid
-		if (true) {
-			// if jwt, decode and get further info
+			// if valid
+			if (true) {
+				// if jwt, decode and get further info
 //			sendAccessTokenResponse(response, accessToken);
-		}
-		// else if invalid
+			}
+		} catch (InvalidTokenException exception) {
+			TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(false);
+			tokenIntrospectionResponse = builder.build();
 
+		}
+		this.sendAccessTokenResponse(request, tokenIntrospectionResponse);
 	}
 
 	private Optional<OAuth2Authorization> findAuthorizationByToken(String token, String tokenTypeHint) {
@@ -170,10 +179,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		return Optional.empty();
 	}
 
-	private void sendAccessTokenResponse(HttpServletResponse response, String accessToken) throws IOException {
-
-		TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(true);
-		TokenIntrospectionResponse tokenIntrospectionResponse = builder.build();
+	private void sendAccessTokenResponse(HttpServletResponse response, ) throws IOException {
 		ServletServerHttpResponse httpResponse = new ServletServerHttpResponse(response);
 //		this.accessTokenHttpResponseConverter.write(tokenIntrospectionResponse, null, httpResponse);
 	}
