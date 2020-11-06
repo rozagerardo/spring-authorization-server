@@ -15,19 +15,21 @@
  */
 package org.springframework.security.oauth2.server.authorization.token;
 
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
 import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken2;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
+import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.Version;
 import org.springframework.util.Assert;
-
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * A container for OAuth 2.0 Tokens.
@@ -73,7 +75,7 @@ public class OAuth2Tokens implements Serializable {
 	 * Returns the token specified by {@code tokenType}.
 	 *
 	 * @param tokenType the token type
-	 * @param <T> the type of the token
+	 * @param <T>       the type of the token
 	 * @return the token, or {@code null} if not available
 	 */
 	@Nullable
@@ -85,21 +87,47 @@ public class OAuth2Tokens implements Serializable {
 	}
 
 	/**
-	 * Returns the token specified by {@code token}.
+	 * Returns the token specified by {@code TokenType}.
 	 *
-	 * @param token the token
-	 * @param <T> the type of the token
+	 * @param tokenType the token type
+	 * @param <T>       the type of the token
 	 * @return the token, or {@code null} if not available
 	 */
 	@Nullable
-	@SuppressWarnings("unchecked")
-	public <T extends AbstractOAuth2Token> T getToken(String token) {
-		Assert.hasText(token, "token cannot be empty");
-		OAuth2TokenHolder tokenHolder = this.tokens.values().stream()
-				.filter(holder -> holder.getToken().getTokenValue().equals(token))
-				.findFirst()
-				.orElse(null);
-		return tokenHolder != null ? (T) tokenHolder.getToken() : null;
+	public Optional<AbstractOAuth2Token> getToken(TokenType tokenType) {
+		Assert.notNull(tokenType, "tokenType cannot be null");
+		return TokenTypeMapping.get(tokenType).map(tType -> this.tokens.get(tType.getTokenTypeClass()))
+				.map(tHolder -> tHolder.getToken());
+	}
+
+	/**
+	 * Returns the token specified by a token value string.
+	 *
+	 * @param tokenValue the token value
+	 * @return an optional wrapped {@code AbstractOAuth2Token}
+	 */
+	@Nullable
+	public Optional<AbstractOAuth2Token> getToken(String tokenValue) {
+		return getToken(tokenValue, Optional.empty());
+	}
+
+	/**
+	 * Returns the token specified by a token value string and a {@code TokenType}.
+	 * 
+	 * @param tokenValue the token value
+	 * @param tokenType  the token type
+	 * @return an optional wrapped token
+	 */
+	@Nullable
+	public Optional<AbstractOAuth2Token> getToken(String tokenValue, Optional<TokenType> tokenType) {
+		Assert.notNull(tokenValue, "Token Type code cannot be null");
+		if (tokenType.isPresent()) {
+			return this.getToken(tokenType.get()).filter(token -> token.getTokenValue().equals(tokenValue));
+		} else {
+			return this.tokens.values().stream()
+					.filter(tHolder -> tHolder.getToken().getTokenValue().equals(tokenValue))
+					.map(tHolder -> tHolder.getToken()).findFirst();
+		}
 	}
 
 	/**
@@ -144,7 +172,8 @@ public class OAuth2Tokens implements Serializable {
 	}
 
 	/**
-	 * Returns a new {@link Builder}, initialized with the values from the provided {@code tokens}.
+	 * Returns a new {@link Builder}, initialized with the values from the provided
+	 * {@code tokens}.
 	 *
 	 * @param tokens the tokens used for initializing the {@link Builder}
 	 * @return the {@link Builder}
@@ -180,9 +209,10 @@ public class OAuth2Tokens implements Serializable {
 		}
 
 		/**
-		 * Sets the {@link OAuth2AccessToken access token} and associated {@link OAuth2TokenMetadata token metadata}.
+		 * Sets the {@link OAuth2AccessToken access token} and associated
+		 * {@link OAuth2TokenMetadata token metadata}.
 		 *
-		 * @param accessToken the {@link OAuth2AccessToken}
+		 * @param accessToken   the {@link OAuth2AccessToken}
 		 * @param tokenMetadata the {@link OAuth2TokenMetadata}
 		 * @return the {@link Builder}
 		 */
@@ -201,9 +231,10 @@ public class OAuth2Tokens implements Serializable {
 		}
 
 		/**
-		 * Sets the {@link OAuth2RefreshToken refresh token} and associated {@link OAuth2TokenMetadata token metadata}.
+		 * Sets the {@link OAuth2RefreshToken refresh token} and associated
+		 * {@link OAuth2TokenMetadata token metadata}.
 		 *
-		 * @param refreshToken the {@link OAuth2RefreshToken}
+		 * @param refreshToken  the {@link OAuth2RefreshToken}
 		 * @param tokenMetadata the {@link OAuth2TokenMetadata}
 		 * @return the {@link Builder}
 		 */
@@ -215,7 +246,7 @@ public class OAuth2Tokens implements Serializable {
 		 * Sets the token.
 		 *
 		 * @param token the token
-		 * @param <T> the type of the token
+		 * @param <T>   the type of the token
 		 * @return the {@link Builder}
 		 */
 		public <T extends AbstractOAuth2Token> Builder token(T token) {
@@ -225,9 +256,9 @@ public class OAuth2Tokens implements Serializable {
 		/**
 		 * Sets the token and associated {@link OAuth2TokenMetadata token metadata}.
 		 *
-		 * @param token the token
+		 * @param token         the token
 		 * @param tokenMetadata the {@link OAuth2TokenMetadata}
-		 * @param <T> the type of the token
+		 * @param <T>           the type of the token
 		 * @return the {@link Builder}
 		 */
 		public <T extends AbstractOAuth2Token> Builder token(T token, OAuth2TokenMetadata tokenMetadata) {
@@ -280,13 +311,47 @@ public class OAuth2Tokens implements Serializable {
 				return false;
 			}
 			OAuth2TokenHolder that = (OAuth2TokenHolder) obj;
-			return Objects.equals(this.token, that.token) &&
-					Objects.equals(this.tokenMetadata, that.tokenMetadata);
+			return Objects.equals(this.token, that.token) && Objects.equals(this.tokenMetadata, that.tokenMetadata);
 		}
 
 		@Override
 		public int hashCode() {
 			return Objects.hash(this.token, this.tokenMetadata);
 		}
+	}
+
+	/**
+	 * Enum to map a {@code TokenType} to a corresponding class extending
+	 * {@code AbstractOAuth2Token}.
+	 * 
+	 * @author Gerardo Roza
+	 *
+	 */
+	private enum TokenTypeMapping {
+		ACCESS_TOKEN(TokenType.ACCESS_TOKEN, OAuth2AccessToken.class),
+		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class),
+		AUTHORIZATION_CODE(TokenType.AUTHORIZATION_CODE, OAuth2AuthorizationCode.class);
+
+		private final TokenType tokenType;
+		private final Class<? extends AbstractOAuth2Token> tokenTypeClass;
+
+		TokenTypeMapping(TokenType tokenType, Class<? extends AbstractOAuth2Token> tokenTypeClass) {
+			this.tokenType = tokenType;
+			this.tokenTypeClass = tokenTypeClass;
+		}
+
+		static public Optional<TokenTypeMapping> get(TokenType tokenType) {
+			Assert.notNull(tokenType, "tokentype code cannot be null");
+			for (TokenTypeMapping candidate : values()) {
+				if (candidate.tokenType.equals(tokenType))
+					return Optional.of(candidate);
+			}
+			return Optional.empty();
+		}
+
+		public Class<? extends AbstractOAuth2Token> getTokenTypeClass() {
+			return tokenTypeClass;
+		}
+
 	}
 }

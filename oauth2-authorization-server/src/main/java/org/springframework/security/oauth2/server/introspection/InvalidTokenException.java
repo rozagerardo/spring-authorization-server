@@ -14,22 +14,20 @@
  * limitations under the License.
  */
 
-package org.springframework.security.oauth2.server.authorization;
+package org.springframework.security.oauth2.server.introspection;
 
-import org.springframework.security.oauth2.core.OAuth2Error;
-
+/**
+ * Exception that can be triggered when a token is found invalid.
+ * 
+ * @author Gerardo Roza
+ *
+ */
 public class InvalidTokenException extends RuntimeException {
-
-	private final OAuth2Error error;
 
 	/**
 	 * Construct an instance of {@link InvalidTokenException} given the provided
 	 * description.
 	 *
-	 * The description will be wrapped into an
-	 * {@link org.springframework.security.oauth2.core.OAuth2Error} instance as the
-	 * {@code error_description}.
-	 * 
 	 * @param description the description
 	 */
 	public InvalidTokenException(String description) {
@@ -39,26 +37,11 @@ public class InvalidTokenException extends RuntimeException {
 	/**
 	 * Construct an instance of {@link InvalidTokenException} given the provided
 	 * description and cause
-	 *
-	 * The description will be wrapped into an
-	 * {@link org.springframework.security.oauth2.core.OAuth2Error} instance as the
-	 * {@code error_description}.
 	 * 
 	 * @param description the description
 	 * @param cause       the causing exception
 	 */
 	public InvalidTokenException(String description, Throwable cause) {
 		super(description, cause);
-		this.error = BearerTokenErrors.invalidToken(description);
 	}
-
-	/**
-	 * Returns the {@link OAuth2Error OAuth 2.0 Error}.
-	 * 
-	 * @return the {@link OAuth2Error}
-	 */
-	public OAuth2Error getError() {
-		return this.error;
-	}
-
 }
