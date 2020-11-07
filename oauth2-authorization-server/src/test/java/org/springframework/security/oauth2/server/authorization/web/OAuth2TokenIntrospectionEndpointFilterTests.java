@@ -32,7 +32,6 @@ import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMe
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
-import org.springframework.security.oauth2.server.introspection.OAuth2TokenIntrospectionEndpointFilter;
 
 /**
  * Tests for {@link OAuth2TokenIntrospectionEndpointFilter}.

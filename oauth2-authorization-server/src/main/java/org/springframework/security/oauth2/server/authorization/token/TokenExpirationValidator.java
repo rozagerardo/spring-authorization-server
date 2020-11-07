@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.security.oauth2.server.introspection;
+package org.springframework.security.oauth2.server.authorization.token;
 
 import java.time.Instant;
 
