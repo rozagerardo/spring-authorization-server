@@ -166,7 +166,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 			tokenIntrospectionResponse = builder.build();
 
 		}
-		this.sendAccessTokenResponse(response, tokenIntrospectionResponse);
+		this.sendTokenIntrospectionResponse(response, tokenIntrospectionResponse);
 	}
 
 	private Optional<OAuth2Authorization> findAuthorizationByToken(String token, Optional<TokenType> tokenTypeHint) {
@@ -184,7 +184,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		return Optional.empty();
 	}
 
-	private void sendAccessTokenResponse(HttpServletResponse response,
+	private void sendTokenIntrospectionResponse(HttpServletResponse response,
 			TokenIntrospectionSuccessResponse tokenIntrospectionResponse) throws IOException {
 		ServletServerHttpResponse httpResponse = new ServletServerHttpResponse(response);
 		this.tokenIntrospectionHttpResponseConverter.write(tokenIntrospectionResponse, null, httpResponse);

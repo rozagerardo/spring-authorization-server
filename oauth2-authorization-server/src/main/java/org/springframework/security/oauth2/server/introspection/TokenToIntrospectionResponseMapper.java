@@ -76,8 +76,6 @@ public final class TokenToIntrospectionResponseMapper {
 			final OAuth2AccessToken accessToken, TokenIntrospectionSuccessResponse.Builder builder) {
 		builder.scope(Scope.parse(String.join(" ", accessToken.getScopes())));
 		builder.tokenType(AccessTokenType.BEARER);
-		builder.expirationTime(Date.from(accessToken.getExpiresAt()));
-		builder.issueTime(Date.from(accessToken.getIssuedAt()));
 		return builder;
 	}
 
@@ -92,8 +90,6 @@ public final class TokenToIntrospectionResponseMapper {
 			TokenIntrospectionSuccessResponse.Builder builder) {
 		builder.scope(Scope.parse(String.join(" ", jwt.getClaimAsStringList(OAuth2ParameterNames.SCOPE))));
 		builder.tokenType(AccessTokenType.BEARER);
-		builder.expirationTime(Date.from(jwt.getExpiresAt()));
-		builder.issueTime(Date.from(jwt.getIssuedAt()));
 		builder.notBeforeTime(Date.from(jwt.getNotBefore()));
 		builder.subject(new Subject(jwt.getSubject()));
 		builder.audience(jwt.getAudience().stream().map(Audience::new).collect(toList()));
