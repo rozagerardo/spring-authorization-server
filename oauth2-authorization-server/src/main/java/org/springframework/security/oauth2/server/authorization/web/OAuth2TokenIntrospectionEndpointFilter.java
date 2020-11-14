@@ -44,6 +44,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpOutputMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.AbstractHttpMessageConverter;
 import org.springframework.http.converter.GenericHttpMessageConverter;
@@ -53,11 +54,9 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.AbstractOAuth2Token;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -66,6 +65,7 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMessageConverter;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
@@ -74,7 +74,6 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.TokenExpirationValidator;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -88,6 +87,7 @@ import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
 import com.nimbusds.oauth2.sdk.id.Audience;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.oauth2.sdk.id.JWTID;
 import com.nimbusds.oauth2.sdk.id.Subject;
 import com.nimbusds.oauth2.sdk.token.AccessTokenType;
 
@@ -108,10 +108,11 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	 */
 	public static final String DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI = "/oauth2/introspect";
 
-	private final OAuth2AuthorizationService authorizationService;
 	private final RequestMatcher tokenEndpointMatcher;
+	private final OAuth2AuthorizationService authorizationService;
 	private final HttpMessageConverter<TokenIntrospectionSuccessResponse> tokenIntrospectionHttpResponseConverter = new NimbusTokenIntrospectionResponseHttpMessageConverter();
 	private final Collection<JwtDecoder> jwtDecoders;
+	private final HttpMessageConverter<OAuth2Error> errorHttpResponseConverter = new OAuth2ErrorHttpMessageConverter();
 
 	/**
 	 * Constructs an {@code OAuth2TokenIntrospectionEndpointFilter} using the provided parameters.
@@ -119,11 +120,9 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	 * @param authenticationManager the authentication manager
 	 * @param authorizationService  the authorization service
 	 */
-	public OAuth2TokenIntrospectionEndpointFilter(RegisteredClientRepository registeredClientRepository,
-			Collection<JwtDecoder> jwtDecoders, AuthenticationManager authenticationManager,
-			OAuth2AuthorizationService authorizationService) {
-		this(registeredClientRepository, jwtDecoders, authenticationManager, authorizationService,
-				DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI);
+	public OAuth2TokenIntrospectionEndpointFilter(OAuth2AuthorizationService authorizationService,
+			Collection<JwtDecoder> jwtDecoders) {
+		this(authorizationService, jwtDecoders, DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI);
 	}
 
 	/**
@@ -133,15 +132,11 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	 * @param authorizationService          the authorization service
 	 * @param tokenIntrospectionEndpointUri the endpoint {@code URI} for token introspection requests
 	 */
-	public OAuth2TokenIntrospectionEndpointFilter(RegisteredClientRepository registeredClientRepository,
-			Collection<JwtDecoder> jwtDecoders, AuthenticationManager authenticationManager,
-			OAuth2AuthorizationService authorizationService, String tokenIntrospectionEndpointUri) {
-		Assert.notNull(registeredClientRepository, "registeredClientRepository cannot be null");
-		Assert.notNull(authenticationManager, "authenticationManager cannot be null");
+	public OAuth2TokenIntrospectionEndpointFilter(OAuth2AuthorizationService authorizationService,
+			Collection<JwtDecoder> jwtDecoders, String tokenIntrospectionEndpointUri) {
 		Assert.notNull(authorizationService, "authorizationService cannot be null");
-		Assert.notNull(jwtDecoders, "jwtDecoders cannot be empty");
 		Assert.hasText(tokenIntrospectionEndpointUri, "tokenIntrospectionEndpointUri cannot be empty");
-		this.jwtDecoders = jwtDecoders;
+		this.jwtDecoders = jwtDecoders != null ? jwtDecoders : Collections.emptyList();
 		this.authorizationService = authorizationService;
 		this.tokenEndpointMatcher = new AntPathRequestMatcher(tokenIntrospectionEndpointUri, HttpMethod.POST.name());
 	}
@@ -165,55 +160,67 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		}
 
 		MultiValueMap<String, String> parameters = OAuth2EndpointUtils.getParameters(request);
-
-		// token (REQUIRED)
-		String token = parameters.getFirst(OAuth2ParameterNames.TOKEN);
-		if (!StringUtils.hasText(token) || parameters.get(OAuth2ParameterNames.TOKEN).size() != 1) {
-			throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN);
-		}
-
-		// token_type_hint (OPTIONAL)
-		Optional<TokenType> tokenTypeHint = Optional.ofNullable(parameters.getFirst(OAuth2ParameterNames.TOKEN_TYPE_HINT))
-				.map(TokenType::new);
-		if (tokenTypeHint.isPresent() && parameters.get(OAuth2ParameterNames.TOKEN_TYPE_HINT).size() != 1) {
-			throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN_TYPE_HINT);
-		}
-
-		TokenIntrospectionSuccessResponse tokenIntrospectionResponse;
-
 		try {
-			// get client from token
-			OAuth2Authorization authorization = findAuthorizationByToken(token, tokenTypeHint)
-					.orElseThrow(() -> new InvalidTokenException("Token not found"));
-
-			// check if token corresponds to authorized Client
-			OAuth2ClientAuthenticationToken clientAuthentication = principal instanceof OAuth2ClientAuthenticationToken
-					? (OAuth2ClientAuthenticationToken) principal
-					: null;
-			String clientId = authorization.getRegisteredClientId();
-			if (clientAuthentication == null || !clientAuthentication.getRegisteredClient().getId().equals(clientId)) {
-				throw new InvalidTokenException("Token does not correspond to authenticated client");
+			// token (REQUIRED)
+			String token = parameters.getFirst(OAuth2ParameterNames.TOKEN);
+			if (!StringUtils.hasText(token) || parameters.get(OAuth2ParameterNames.TOKEN).size() != 1) {
+				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN);
 			}
 
-			AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token, tokenTypeHint).get();
-			if (authorization.getTokens().getTokenMetadata(oauthToken).isInvalidated()) {
-				throw new InvalidTokenException("Token has been invalidated");
+			// token_type_hint (OPTIONAL)
+			Optional<TokenType> tokenTypeHint = Optional.ofNullable(parameters.getFirst(OAuth2ParameterNames.TOKEN_TYPE_HINT))
+					.map(TokenType::new);
+			if (tokenTypeHint.isPresent() && parameters.get(OAuth2ParameterNames.TOKEN_TYPE_HINT).size() != 1) {
+				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN_TYPE_HINT);
 			}
 
-			oauthToken = parseJwt(oauthToken);
+			TokenIntrospectionSuccessResponse tokenIntrospectionResponse;
 
-			validateToken(oauthToken);
+			try {
+				// get client from token
+				OAuth2Authorization authorization = findAuthorizationByToken(token, tokenTypeHint)
+						.orElseThrow(() -> new InvalidTokenException("Token not found"));
 
-			TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(true);
-			builder.clientID(new ClientID(clientId));
-			TokenToIntrospectionResponseFieldsMapper.extractFromToken(oauthToken, builder);
-			tokenIntrospectionResponse = builder.build();
-		} catch (InvalidTokenException exception) {
-			TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(false);
-			tokenIntrospectionResponse = builder.build();
+				// check if token corresponds to authorized Client
+				OAuth2ClientAuthenticationToken clientAuthentication = principal instanceof OAuth2ClientAuthenticationToken
+						? (OAuth2ClientAuthenticationToken) principal
+						: null;
+				if (clientAuthentication == null
+						|| !clientAuthentication.getRegisteredClient().getId().equals(authorization.getRegisteredClientId())) {
+					throw new InvalidTokenException("Token does not correspond to authenticated client");
+				}
 
+				// we've obtained the authorization from the token, we shouldn't expect an empty response here
+				AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token, tokenTypeHint).get();
+				if (authorization.getTokens().getTokenMetadata(oauthToken).isInvalidated()) {
+					throw new InvalidTokenException("Token has been invalidated");
+				}
+
+				oauthToken = parseJwt(oauthToken);
+
+				validateToken(oauthToken);
+
+				TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(true);
+				builder.clientID(new ClientID(clientAuthentication.getRegisteredClient().getClientId()));
+				Optional.ofNullable(oauthToken.getIssuedAt()).map(Date::from).ifPresent(builder::issueTime);
+				Optional.ofNullable(oauthToken.getExpiresAt()).map(Date::from).ifPresent(builder::expirationTime);
+				TokenToIntrospectionResponseFieldsMapper.extractFromToken(oauthToken, builder);
+				tokenIntrospectionResponse = builder.build();
+			} catch (InvalidTokenException exception) {
+				TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(false);
+				tokenIntrospectionResponse = builder.build();
+			}
+			this.sendTokenIntrospectionResponse(response, tokenIntrospectionResponse);
+		} catch (OAuth2AuthenticationException ex) {
+			SecurityContextHolder.clearContext();
+			sendErrorResponse(response, ex.getError());
 		}
-		this.sendTokenIntrospectionResponse(response, tokenIntrospectionResponse);
+	}
+
+	private void sendErrorResponse(HttpServletResponse response, OAuth2Error error) throws IOException {
+		ServletServerHttpResponse httpResponse = new ServletServerHttpResponse(response);
+		httpResponse.setStatusCode(HttpStatus.BAD_REQUEST);
+		this.errorHttpResponseConverter.write(error, null, httpResponse);
 	}
 
 	private Optional<OAuth2Authorization> findAuthorizationByToken(String token, Optional<TokenType> tokenTypeHint) {
@@ -225,8 +232,9 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		});
 		for (TokenType tokenType : supportedTokenTypes) {
 			OAuth2Authorization authorization = this.authorizationService.findByToken(token, tokenType);
-			if (authorization != null)
+			if (authorization != null) {
 				return Optional.of(authorization);
+			}
 		}
 		return Optional.empty();
 	}
@@ -250,16 +258,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 	@SuppressWarnings("unchecked")
 	private <T extends AbstractOAuth2Token> void validateToken(T token) {
-		List<OAuth2TokenValidator<T>> validators;
-
-		if (token instanceof Jwt) {
-			validators = new ArrayList<>();
-			validators.add((OAuth2TokenValidator<T>) new JwtTimestampValidator());
-		} else {
-			validators = new ArrayList<>();
-			validators.add((OAuth2TokenValidator<T>) new TokenExpirationValidator());
-		}
-		DelegatingOAuth2TokenValidator<T> tokenValidator = new DelegatingOAuth2TokenValidator<T>(validators);
+		OAuth2TokenValidator<T> tokenValidator = (token instanceof Jwt) ? (OAuth2TokenValidator<T>) new JwtTimestampValidator()
+				: (OAuth2TokenValidator<T>) new TokenExpirationValidator();
 		OAuth2TokenValidatorResult result = tokenValidator.validate(token);
 		if (result.hasErrors()) {
 			String errorMessages = result.getErrors().stream().map(OAuth2Error::getErrorCode)
@@ -314,7 +314,10 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 */
 		private static TokenIntrospectionSuccessResponse.Builder extractFromOAuth2AccessToken(final OAuth2AccessToken accessToken,
 				TokenIntrospectionSuccessResponse.Builder builder) {
-			builder.scope(Scope.parse(String.join(" ", accessToken.getScopes())));
+			Collection<String> scopes = accessToken.getScopes();
+			if (!scopes.isEmpty()) {
+				builder.scope(Scope.parse(String.join(" ", scopes)));
+			}
 			builder.tokenType(AccessTokenType.BEARER);
 			return builder;
 		}
@@ -328,16 +331,23 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 */
 		private static TokenIntrospectionSuccessResponse.Builder extractFromJwt(final Jwt jwt,
 				TokenIntrospectionSuccessResponse.Builder builder) {
-			builder.scope(Scope.parse(String.join(" ", jwt.getClaimAsStringList(OAuth2ParameterNames.SCOPE))));
 			builder.tokenType(AccessTokenType.BEARER);
-			builder.notBeforeTime(Date.from(jwt.getNotBefore()));
-			builder.subject(new Subject(jwt.getSubject()));
-			builder.audience(jwt.getAudience().stream().map(Audience::new).collect(toList()));
-			try {
-				builder.issuer(new Issuer(jwt.getIssuer().toURI()));
-			} catch (URISyntaxException e) {
-				logger.debug("Error extracting issuer claim from JWT into Token Introspection response", e);
-			}
+			Optional.ofNullable(jwt.getSubject()).map(Subject::new).ifPresent(builder::subject);
+			Optional.ofNullable(jwt.getId()).map(JWTID::new).ifPresent(builder::jwtID);
+			Optional.ofNullable(jwt.getAudience()).map(audienceList -> audienceList.stream().map(Audience::new).collect(toList()))
+					.ifPresent(builder::audience);
+			Optional.ofNullable(jwt.getNotBefore()).map(Date::from).ifPresent(builder::notBeforeTime);
+			Optional.ofNullable(jwt.getClaimAsStringList(OAuth2ParameterNames.SCOPE))
+					.map(scopes -> Scope.parse(String.join(" ", scopes))).ifPresent(builder::scope);
+
+			Optional.ofNullable(jwt.getIssuer()).map(issuer -> {
+				try {
+					return issuer.toURI();
+				} catch (URISyntaxException e) {
+					logger.debug("Error extracting issuer claim from JWT into Token Introspection response", e);
+					return null;
+				}
+			}).map(Issuer::new).ifPresent(builder::issuer);
 			return builder;
 		}
 
@@ -350,10 +360,9 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 */
 		public static TokenIntrospectionSuccessResponse.Builder extractFromToken(final AbstractOAuth2Token token,
 				TokenIntrospectionSuccessResponse.Builder builder) {
-			supportedTokens.get(token.getClass()).accept(token, builder);
+			Optional.ofNullable(supportedTokens.get(token.getClass())).ifPresent(consumer -> consumer.accept(token, builder));
 			return builder;
 		}
-
 	}
 
 	/**
@@ -384,7 +393,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		}
 	}
 
-	private static class NimbusTokenIntrospectionResponseHttpMessageConverter
+	protected static class NimbusTokenIntrospectionResponseHttpMessageConverter
 			extends AbstractHttpMessageConverter<TokenIntrospectionSuccessResponse> {
 
 		private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;

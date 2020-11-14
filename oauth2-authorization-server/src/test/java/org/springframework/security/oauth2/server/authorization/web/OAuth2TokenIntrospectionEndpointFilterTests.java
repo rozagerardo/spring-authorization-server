@@ -15,23 +15,65 @@
  */
 package org.springframework.security.oauth2.server.authorization.web;
 
+import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.assertj.core.api.Condition;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.mock.http.client.MockClientHttpResponse;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.AbstractOAuth2Token;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse;
-import org.springframework.security.oauth2.core.http.converter.OAuth2AccessTokenResponseHttpMessageConverter;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMessageConverter;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.TokenType;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.TestRegisteredClients;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenMetadata;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2Tokens;
+import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenIntrospectionEndpointFilter.NimbusTokenIntrospectionResponseHttpMessageConverter;
+
+import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
+
+import net.minidev.json.JSONObject;
 
 /**
  * Tests for {@link OAuth2TokenIntrospectionEndpointFilter}.
@@ -40,20 +82,18 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
  */
 public class OAuth2TokenIntrospectionEndpointFilterTests {
 
-	private AuthenticationManager authenticationManager;
 	private OAuth2AuthorizationService authorizationService;
-	private RegisteredClientRepository registeredClientRepository;
 	private OAuth2TokenIntrospectionEndpointFilter filter;
+	private final JwtDecoder decoder = mock(JwtDecoder.class);
 	private final HttpMessageConverter<OAuth2Error> errorHttpResponseConverter = new OAuth2ErrorHttpMessageConverter();
-	private final HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenHttpResponseConverter = new OAuth2AccessTokenResponseHttpMessageConverter();
+	private final HttpMessageConverter<TokenIntrospectionSuccessResponse> tokenIntrospectionHttpResponseConverter = new NimbusTokenIntrospectionResponseHttpMessageConverter();
+	private final Condition<Object> scopesMatchesInAnyOrder = new Condition<>(
+			scopes -> scopes.equals("scope1 Scope2") || scopes.equals("Scope2 scope1"), "scopes match");
 
 	@Before
 	public void setUp() {
-		this.authenticationManager = mock(AuthenticationManager.class);
 		this.authorizationService = mock(OAuth2AuthorizationService.class);
-		this.registeredClientRepository = mock(RegisteredClientRepository.class);
-		this.filter = new OAuth2TokenIntrospectionEndpointFilter(this.registeredClientRepository,
-				this.authenticationManager, this.authorizationService);
+		this.filter = new OAuth2TokenIntrospectionEndpointFilter(authorizationService, Collections.singletonList(decoder));
 	}
 
 	@After
@@ -61,291 +101,627 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		SecurityContextHolder.clearContext();
 	}
 
-//	@Test
-//	public void asd() {
-//		Optional<OAuth2Authorization> output = this.filter.findAuthorizationByToken("asd", "access_token");
-//		Optional<OAuth2Authorization> output2 = this.filter.findAuthorizationByToken("asd", "refresh_token");
-//		Optional<OAuth2Authorization> output3 = this.filter.findAuthorizationByToken("asd", null);
-//		Optional<OAuth2Authorization> output4 = this.filter.findAuthorizationByToken("asd", "other");
-//		System.out.println("GERGERGER");
-//
-//	}
-//
-//	@Test
-//	public void constructorWhenAuthenticationManagerNullThenThrowIllegalArgumentException() {
-//		assertThatThrownBy(() -> new OAuth2TokenEndpointFilter(null, this.authorizationService))
-//				.isInstanceOf(IllegalArgumentException.class)
-//				.hasMessage("authenticationManager cannot be null");
-//	}
-//
-//	@Test
-//	public void constructorWhenAuthorizationServiceNullThenThrowIllegalArgumentException() {
-//		assertThatThrownBy(() -> new OAuth2TokenEndpointFilter(this.authenticationManager, null))
-//				.isInstanceOf(IllegalArgumentException.class)
-//				.hasMessage("authorizationService cannot be null");
-//	}
-//
-//	@Test
-//	public void constructorWhenTokenEndpointUriNullThenThrowIllegalArgumentException() {
-//		assertThatThrownBy(() -> new OAuth2TokenEndpointFilter(this.authenticationManager, this.authorizationService, null))
-//				.isInstanceOf(IllegalArgumentException.class)
-//				.hasMessage("tokenEndpointUri cannot be empty");
-//	}
-//
-//	@Test
-//	public void doFilterWhenNotTokenRequestThenNotProcessed() throws Exception {
-//		String requestUri = "/path";
-//		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
-//		request.setServletPath(requestUri);
-//		MockHttpServletResponse response = new MockHttpServletResponse();
-//		FilterChain filterChain = mock(FilterChain.class);
-//
-//		this.filter.doFilter(request, response, filterChain);
-//
-//		verify(filterChain).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class));
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestGetThenNotProcessed() throws Exception {
-//		String requestUri = OAuth2TokenEndpointFilter.DEFAULT_TOKEN_ENDPOINT_URI;
-//		MockHttpServletRequest request = new MockHttpServletRequest("GET", requestUri);
-//		request.setServletPath(requestUri);
-//		MockHttpServletResponse response = new MockHttpServletResponse();
-//		FilterChain filterChain = mock(FilterChain.class);
-//
-//		this.filter.doFilter(request, response, filterChain);
-//
-//		verify(filterChain).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class));
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMissingGrantTypeThenInvalidRequestError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.removeParameter(OAuth2ParameterNames.GRANT_TYPE);
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.GRANT_TYPE, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMultipleGrantTypeThenInvalidRequestError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.addParameter(OAuth2ParameterNames.GRANT_TYPE, AuthorizationGrantType.AUTHORIZATION_CODE.getValue());
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.GRANT_TYPE, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestInvalidGrantTypeThenUnsupportedGrantTypeError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.setParameter(OAuth2ParameterNames.GRANT_TYPE, "invalid-grant-type");
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.GRANT_TYPE, OAuth2ErrorCodes.UNSUPPORTED_GRANT_TYPE, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMissingCodeThenInvalidRequestError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.removeParameter(OAuth2ParameterNames.CODE);
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.CODE, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMultipleCodeThenInvalidRequestError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.addParameter(OAuth2ParameterNames.CODE, "code-2");
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.CODE, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMultipleRedirectUriThenInvalidRequestError() throws Exception {
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(
-//				TestRegisteredClients.registeredClient().build());
-//		request.addParameter(OAuth2ParameterNames.REDIRECT_URI, "https://example2.com");
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.REDIRECT_URI, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenAuthorizationCodeTokenRequestValidThenAccessTokenResponse() throws Exception {
-//		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
-//		Authentication clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
-//		OAuth2AccessToken accessToken = new OAuth2AccessToken(
-//				OAuth2AccessToken.TokenType.BEARER, "token",
-//				Instant.now(), Instant.now().plus(Duration.ofHours(1)),
-//				new HashSet<>(Arrays.asList("scope1", "scope2")));
-//		OAuth2AccessTokenAuthenticationToken accessTokenAuthentication =
-//				new OAuth2AccessTokenAuthenticationToken(
-//						registeredClient, clientPrincipal, accessToken);
-//
-//		when(this.authenticationManager.authenticate(any())).thenReturn(accessTokenAuthentication);
-//
-//		SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-//		securityContext.setAuthentication(clientPrincipal);
-//		SecurityContextHolder.setContext(securityContext);
-//
-//		MockHttpServletRequest request = createAuthorizationCodeTokenRequest(registeredClient);
-//		MockHttpServletResponse response = new MockHttpServletResponse();
-//		FilterChain filterChain = mock(FilterChain.class);
-//
-//		this.filter.doFilter(request, response, filterChain);
-//
-//		verifyNoInteractions(filterChain);
-//
-//		ArgumentCaptor<OAuth2AuthorizationCodeAuthenticationToken> authorizationCodeAuthenticationCaptor =
-//				ArgumentCaptor.forClass(OAuth2AuthorizationCodeAuthenticationToken.class);
-//		verify(this.authenticationManager).authenticate(authorizationCodeAuthenticationCaptor.capture());
-//
-//		OAuth2AuthorizationCodeAuthenticationToken authorizationCodeAuthentication =
-//				authorizationCodeAuthenticationCaptor.getValue();
-//		assertThat(authorizationCodeAuthentication.getCode()).isEqualTo(
-//				request.getParameter(OAuth2ParameterNames.CODE));
-//		assertThat(authorizationCodeAuthentication.getPrincipal()).isEqualTo(clientPrincipal);
-//		assertThat(authorizationCodeAuthentication.getRedirectUri()).isEqualTo(
-//				request.getParameter(OAuth2ParameterNames.REDIRECT_URI));
-//
-//		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
-//		OAuth2AccessTokenResponse accessTokenResponse = readAccessTokenResponse(response);
-//
-//		OAuth2AccessToken accessTokenResult = accessTokenResponse.getAccessToken();
-//		assertThat(accessTokenResult.getTokenType()).isEqualTo(accessToken.getTokenType());
-//		assertThat(accessTokenResult.getTokenValue()).isEqualTo(accessToken.getTokenValue());
-//		assertThat(accessTokenResult.getIssuedAt()).isBetween(
-//				accessToken.getIssuedAt().minusSeconds(1), accessToken.getIssuedAt().plusSeconds(1));
-//		assertThat(accessTokenResult.getExpiresAt()).isBetween(
-//				accessToken.getExpiresAt().minusSeconds(1), accessToken.getExpiresAt().plusSeconds(1));
-//		assertThat(accessTokenResult.getScopes()).isEqualTo(accessToken.getScopes());
-//	}
-//
-//	@Test
-//	public void doFilterWhenTokenRequestMultipleScopeThenInvalidRequestError() throws Exception {
-//		RegisteredClient registeredClient = TestRegisteredClients.registeredClient2().build();
-//		Authentication clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
-//
-//		SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-//		securityContext.setAuthentication(clientPrincipal);
-//		SecurityContextHolder.setContext(securityContext);
-//
-//		MockHttpServletRequest request = createClientCredentialsTokenRequest(registeredClient);
-//		request.addParameter(OAuth2ParameterNames.SCOPE, "profile");
-//
-//		doFilterWhenTokenRequestInvalidParameterThenError(
-//				OAuth2ParameterNames.SCOPE, OAuth2ErrorCodes.INVALID_REQUEST, request);
-//	}
-//
-//	@Test
-//	public void doFilterWhenClientCredentialsTokenRequestValidThenAccessTokenResponse() throws Exception {
-//		RegisteredClient registeredClient = TestRegisteredClients.registeredClient2().build();
-//		Authentication clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
-//		OAuth2AccessToken accessToken = new OAuth2AccessToken(
-//				OAuth2AccessToken.TokenType.BEARER, "token",
-//				Instant.now(), Instant.now().plus(Duration.ofHours(1)),
-//				new HashSet<>(Arrays.asList("scope1", "scope2")));
-//		OAuth2AccessTokenAuthenticationToken accessTokenAuthentication =
-//				new OAuth2AccessTokenAuthenticationToken(
-//						registeredClient, clientPrincipal, accessToken);
-//
-//		when(this.authenticationManager.authenticate(any())).thenReturn(accessTokenAuthentication);
-//
-//		SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-//		securityContext.setAuthentication(clientPrincipal);
-//		SecurityContextHolder.setContext(securityContext);
-//
-//		MockHttpServletRequest request = createClientCredentialsTokenRequest(registeredClient);
-//		MockHttpServletResponse response = new MockHttpServletResponse();
-//		FilterChain filterChain = mock(FilterChain.class);
-//
-//		this.filter.doFilter(request, response, filterChain);
-//
-//		verifyNoInteractions(filterChain);
-//
-//		ArgumentCaptor<OAuth2ClientCredentialsAuthenticationToken> clientCredentialsAuthenticationCaptor =
-//				ArgumentCaptor.forClass(OAuth2ClientCredentialsAuthenticationToken.class);
-//		verify(this.authenticationManager).authenticate(clientCredentialsAuthenticationCaptor.capture());
-//
-//		OAuth2ClientCredentialsAuthenticationToken clientCredentialsAuthentication =
-//				clientCredentialsAuthenticationCaptor.getValue();
-//		assertThat(clientCredentialsAuthentication.getPrincipal()).isEqualTo(clientPrincipal);
-//		assertThat(clientCredentialsAuthentication.getScopes()).isEqualTo(registeredClient.getScopes());
-//
-//		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
-//		OAuth2AccessTokenResponse accessTokenResponse = readAccessTokenResponse(response);
-//
-//		OAuth2AccessToken accessTokenResult = accessTokenResponse.getAccessToken();
-//		assertThat(accessTokenResult.getTokenType()).isEqualTo(accessToken.getTokenType());
-//		assertThat(accessTokenResult.getTokenValue()).isEqualTo(accessToken.getTokenValue());
-//		assertThat(accessTokenResult.getIssuedAt()).isBetween(
-//				accessToken.getIssuedAt().minusSeconds(1), accessToken.getIssuedAt().plusSeconds(1));
-//		assertThat(accessTokenResult.getExpiresAt()).isBetween(
-//				accessToken.getExpiresAt().minusSeconds(1), accessToken.getExpiresAt().plusSeconds(1));
-//		assertThat(accessTokenResult.getScopes()).isEqualTo(accessToken.getScopes());
-//	}
-//
-//	private void doFilterWhenTokenRequestInvalidParameterThenError(String parameterName, String errorCode,
-//			MockHttpServletRequest request) throws Exception {
-//
-//		MockHttpServletResponse response = new MockHttpServletResponse();
-//		FilterChain filterChain = mock(FilterChain.class);
-//
-//		this.filter.doFilter(request, response, filterChain);
-//
-//		verifyNoInteractions(filterChain);
-//
-//		assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-//		OAuth2Error error = readError(response);
-//		assertThat(error.getErrorCode()).isEqualTo(errorCode);
-//		assertThat(error.getDescription()).isEqualTo("OAuth 2.0 Parameter: " + parameterName);
-//	}
-//
-//	private OAuth2Error readError(MockHttpServletResponse response) throws Exception {
-//		MockClientHttpResponse httpResponse = new MockClientHttpResponse(
-//				response.getContentAsByteArray(), HttpStatus.valueOf(response.getStatus()));
-//		return this.errorHttpResponseConverter.read(OAuth2Error.class, httpResponse);
-//	}
-//
-//	private OAuth2AccessTokenResponse readAccessTokenResponse(MockHttpServletResponse response) throws Exception {
-//		MockClientHttpResponse httpResponse = new MockClientHttpResponse(
-//				response.getContentAsByteArray(), HttpStatus.valueOf(response.getStatus()));
-//		return this.accessTokenHttpResponseConverter.read(OAuth2AccessTokenResponse.class, httpResponse);
-//	}
-//
-//	private static MockHttpServletRequest createAuthorizationCodeTokenRequest(RegisteredClient registeredClient) {
-//		String[] redirectUris = registeredClient.getRedirectUris().toArray(new String[0]);
-//
-//		String requestUri = OAuth2TokenEndpointFilter.DEFAULT_TOKEN_ENDPOINT_URI;
-//		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
-//		request.setServletPath(requestUri);
-//
-//		request.addParameter(OAuth2ParameterNames.GRANT_TYPE, AuthorizationGrantType.AUTHORIZATION_CODE.getValue());
-//		request.addParameter(OAuth2ParameterNames.CODE, "code");
-//		request.addParameter(OAuth2ParameterNames.REDIRECT_URI, redirectUris[0]);
-//		// The client does not need to send the client ID param, but we are resilient in case they do
-//		request.addParameter(OAuth2ParameterNames.CLIENT_ID, registeredClient.getClientId());
-//
-//		return request;
-//	}
-//
-//	private static MockHttpServletRequest createClientCredentialsTokenRequest(RegisteredClient registeredClient) {
-//		String requestUri = OAuth2TokenEndpointFilter.DEFAULT_TOKEN_ENDPOINT_URI;
-//		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
-//		request.setServletPath(requestUri);
-//
-//		request.addParameter(OAuth2ParameterNames.GRANT_TYPE, AuthorizationGrantType.CLIENT_CREDENTIALS.getValue());
-//		request.addParameter(OAuth2ParameterNames.SCOPE,
-//				StringUtils.collectionToDelimitedString(registeredClient.getScopes(), " "));
-//
-//		return request;
-//	}
+	@Test
+	public void constructorWhenAuthorizationServiceNullThenThrowIllegalArgumentException() {
+		assertThatThrownBy(() -> new OAuth2TokenIntrospectionEndpointFilter(null, Collections.singletonList(this.decoder)))
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("authorizationService cannot be null");
+	}
+
+	@Test
+	public void constructorWhenTokenEndpointUriNullThenThrowIllegalArgumentException() {
+		assertThatThrownBy(() -> new OAuth2TokenIntrospectionEndpointFilter(this.authorizationService,
+				Collections.singletonList(this.decoder), null)).isInstanceOf(IllegalArgumentException.class)
+						.hasMessage("tokenIntrospectionEndpointUri cannot be empty");
+	}
+
+	@Test
+	public void doFilterWhenNotIntrospectionRequestThenNotProcessed() throws Exception {
+		String requestUri = "/path";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
+		request.setServletPath(requestUri);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verify(filterChain).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class));
+	}
+
+	@Test
+	public void doFilterWhenIntrospectionRequestGetThenNotProcessed() throws Exception {
+		String requestUri = OAuth2TokenIntrospectionEndpointFilter.DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI;
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", requestUri);
+		request.setServletPath(requestUri);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verify(filterChain).doFilter(any(HttpServletRequest.class), any(HttpServletResponse.class));
+	}
+
+	@Test
+	public void doFilterWhenIntrospectionRequestMissingTokenParamThenInvalidRequestError() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		request.removeParameter(OAuth2ParameterNames.TOKEN);
+
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN,
+				OAuth2ErrorCodes.INVALID_REQUEST, request);
+
+	}
+
+	@Test
+	public void doFilterWhenTokenRequestMultipleTokenParamThenInvalidRequestError() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		request.addParameter(OAuth2ParameterNames.TOKEN, "token.456");
+
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN,
+				OAuth2ErrorCodes.INVALID_REQUEST, request);
+	}
+
+	@Test
+	public void doFilterWhenTokenRequestMultipleTokenTypeHintParamThenInvalidRequestError() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		request.addParameter(OAuth2ParameterNames.TOKEN_TYPE_HINT, TokenType.REFRESH_TOKEN.getValue());
+
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN_TYPE_HINT,
+				OAuth2ErrorCodes.INVALID_REQUEST, request);
+	}
+
+	@Test
+	public void doFilterWhenIntrospectNonExistingTokenThenNotActiveTokenOkReponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		setupSecurityContext();
+
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(null);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertNotActiveTokenResponse(response);
+	}
+
+	@Test
+	public void doFilterWhenIntrospectTokenFromDifferentClientThenNotActiveTokenOkReponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn("otherClientId");
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertNotActiveTokenResponse(response);
+	}
+
+	@Test
+	public void doFilterWhenIntrospectExpiredTokenThenNotActiveTokenOkReponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getClientId());
+
+		Instant issuedAt = Instant.now().minusSeconds(7200);
+		retrieveOAuth2AccessToken(tokenAuthorization, issuedAt, false);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertNotActiveTokenResponse(response);
+	}
+
+	@Test
+	public void doFilterWhenIntrospectInvalidatedTokenThenNotActiveTokenOkReponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		Instant issuedAt = Instant.now();
+		retrieveOAuth2AccessToken(tokenAuthorization, issuedAt, true);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertNotActiveTokenResponse(response);
+	}
+
+	@Test
+	public void doFilterWhenIntrospectValidAccessTokenThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		Instant issuedAt = Instant.now();
+		retrieveOAuth2AccessToken(tokenAuthorization, issuedAt, false);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).contains(
+				entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))))
+		.hasEntrySatisfying(OAuth2ParameterNames.SCOPE, scopesMatchesInAnyOrder)
+		.hasSize(6);
+		// @formatter: on
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectValidRefreshTokenThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		Instant issuedAt = Instant.now();
+		retrieveOAuth2RefreshToken(tokenAuthorization, issuedAt, false);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).containsOnly(
+				entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))));
+		// @formatter: on
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectValidJwtTokenThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		retrieveAbstractOAuth2Token(tokenAuthorization);
+		Instant issuedAt = Instant.now();
+		
+		Jwt jwt = createJwt(issuedAt).claim("customClaim", "customValue").build();
+		when(this.decoder.decode("token.123")).thenReturn(jwt);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).contains(
+				entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
+				entry(JwtClaimNames.NBF, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
+				entry(JwtClaimNames.AUD, Collections.singletonList("audience1")),
+				entry(JwtClaimNames.ISS, "http://issuer1.com"),
+				entry(JwtClaimNames.JTI, "jti1"),
+				entry(JwtClaimNames.SUB, "subject1"))
+		.hasEntrySatisfying(OAuth2ParameterNames.SCOPE, scopesMatchesInAnyOrder)
+		.hasSize(11);
+		// @formatter: on
+	}
+	
+	/**
+	 * Test for {@code Jwt} created with the minimum required fields according to the access_token and id_token specifications.
+	 * 
+	 * @see <a target="_blank" href="https://tools.ietf.org/html/draft-ietf-oauth-access-token-jwt-10">JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens</a> 
+	 * @see <a target="_blank" href="https://openid.net/specs/openid-connect-core-1_0.html#IDToken">OpenID Connect Core - ID Token</a>
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void doFilterWhenIntrospectValidJwtWithMinimumExpectedDataThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+		
+		retrieveAbstractOAuth2Token(tokenAuthorization);
+		Instant issuedAt = Instant.now();
+		
+		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plusSeconds(3600)).issuedAt(issuedAt).issuer("http://issuer1.com").subject("subject1").build();
+		when(this.decoder.decode("token.123")).thenReturn(jwt);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).containsOnly(entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
+				entry(JwtClaimNames.AUD, Collections.singletonList("audience1")),
+				entry(JwtClaimNames.ISS, "http://issuer1.com"),
+				entry(JwtClaimNames.SUB, "subject1"));
+		// @formatter: on
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectValidJwtWithNoExpirationDataThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+		
+		retrieveAbstractOAuth2Token(tokenAuthorization);
+		
+		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").claim("customClaim", "customClaimValue").build();
+		when(this.decoder.decode("token.123")).thenReturn(jwt);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).containsOnly(entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
+		// @formatter: on
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectAccessTokenWithMinimumDataThenValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue())))
+				.thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
+		when(tokenAuthorization.getTokens()).thenReturn(tokens);
+		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token.123", null,
+				null);
+		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+				.thenReturn(Optional.of(accessToken));
+		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
+		when(tokens.getTokenMetadata(accessToken)).thenReturn(metadata);
+		when(metadata.isInvalidated()).thenReturn(false);
+		when(this.decoder.decode("token.123")).thenThrow(JwtException.class);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+
+		JSONObject jsonResponseObject = tokenIntrospectionResponse.toJSONObject();
+		// @formatter:off
+		assertThat(jsonResponseObject).containsOnly(
+				entry("active", true),
+				entry("client_id", registeredClient.getClientId()),
+				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
+		// @formatter: on
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectExpiredJwtTokenThenNotValidTokenResponse() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		RegisteredClient registeredClient = setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
+
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
+
+		retrieveAbstractOAuth2Token(tokenAuthorization);
+		Instant issuedAt = Instant.now().minusSeconds(7200);
+		
+		Jwt jwt = createJwt(issuedAt).claim("customClaim", "customValue").build();
+		when(this.decoder.decode("token.123")).thenReturn(jwt);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertNotActiveTokenResponse(response);
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectWithoutTokenTypeHintParamThenTokenSearchedWithAllSupportedTokenTypes() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", null);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		setupSecurityContext();
+
+		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
+				.thenReturn(null);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		verify(authorizationService).findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()));
+		verify(authorizationService).findByToken("token.123", new TokenType(TokenType.REFRESH_TOKEN.getValue()));
+
+		assertNotActiveTokenResponse(response);
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectWithAccessTokenHintThenTokenSearchedWithAccessTokenFirst() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "access_token");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
+				.thenReturn(tokenAuthorization);
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn("otherClientId");
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		ArgumentCaptor<TokenType> tokenTypeCaptor =
+				ArgumentCaptor.forClass(TokenType.class);
+		verify(this.authorizationService).findByToken(any(String.class), tokenTypeCaptor.capture());
+		TokenType tokenType =
+				tokenTypeCaptor.getValue();
+		assertThat(tokenType).isEqualTo(TokenType.ACCESS_TOKEN);
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectWithRefreshTokenHintThenTokenSearchedWithRefreshTokenFirst() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "refresh_token");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		setupSecurityContext();
+
+		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
+		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
+				.thenReturn(tokenAuthorization);
+		when(tokenAuthorization.getRegisteredClientId()).thenReturn("otherClientId");
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		ArgumentCaptor<TokenType> tokenTypeCaptor =
+				ArgumentCaptor.forClass(TokenType.class);
+		verify(this.authorizationService).findByToken(any(String.class), tokenTypeCaptor.capture());
+		TokenType tokenType =
+				tokenTypeCaptor.getValue();
+		assertThat(tokenType).isEqualTo(TokenType.REFRESH_TOKEN);
+	}
+	
+	@Test
+	public void doFilterWhenIntrospectWithUnknownTokenHintThenTokenSearchedAnyway() throws Exception {
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "unknown_token");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+		
+		setupSecurityContext();
+
+		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
+				.thenReturn(null);
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+		
+		verify(this.authorizationService, times(2)).findByToken(any(String.class), any(TokenType.class));
+	}
+
+	private void assertNotActiveTokenResponse(MockHttpServletResponse response) throws Exception {
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
+		assertThat(tokenIntrospectionResponse.toJSONObject()).containsEntry("active", false).hasSize(1);
+	}
+
+	private OAuth2Error readError(MockHttpServletResponse response) throws Exception {
+		MockClientHttpResponse httpResponse = new MockClientHttpResponse(response.getContentAsByteArray(),
+				HttpStatus.valueOf(response.getStatus()));
+		return this.errorHttpResponseConverter.read(OAuth2Error.class, httpResponse);
+	}
+
+	private TokenIntrospectionSuccessResponse readTokenIntrospectionResponse(MockHttpServletResponse response) throws Exception {
+		MockClientHttpResponse httpResponse = new MockClientHttpResponse(response.getContentAsByteArray(),
+				HttpStatus.valueOf(response.getStatus()));
+		return this.tokenIntrospectionHttpResponseConverter.read(TokenIntrospectionSuccessResponse.class, httpResponse);
+	}
+
+	private void doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(String parameterName, String errorCode,
+			MockHttpServletRequest request) throws Exception {
+
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = mock(FilterChain.class);
+
+		setupSecurityContext();
+
+		this.filter.doFilter(request, response, filterChain);
+
+		verifyNoInteractions(filterChain);
+
+		assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+		OAuth2Error error = readError(response);
+		assertThat(error.getErrorCode()).isEqualTo(errorCode);
+		assertThat(error.getDescription()).isEqualTo("OAuth 2.0 Token Introspection Parameter: " + parameterName);
+	}
+	
+	private static RegisteredClient setupSecurityContext() {
+		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
+		Authentication clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
+		SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+		securityContext.setAuthentication(clientPrincipal);
+		SecurityContextHolder.setContext(securityContext);
+		return registeredClient;
+	}
+	
+	private AbstractOAuth2Token retrieveAbstractOAuth2Token(OAuth2Authorization tokenAuthorization) {
+		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
+		when(tokenAuthorization.getTokens()).thenReturn(tokens);
+		AbstractOAuth2Token token = mock(AbstractOAuth2Token.class);
+		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue())))).thenReturn(Optional.of(token));
+		when(token.getTokenValue()).thenReturn("token.123");
+		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
+		when(tokens.getTokenMetadata(token)).thenReturn(metadata);
+		when(metadata.isInvalidated()).thenReturn(false);
+		return token;
+	}
+	
+	/**
+	 * Creates an {@code OAuth2AccessToken} with all the basic fields and with validity of one hour from the issuedAt parameter.
+	 * 
+	 * @param tokenAuthorization mock {@code OAuth2Authorization}
+	 * @return configured {@code OAuth2AccessToken}
+	 */
+	private OAuth2AccessToken retrieveOAuth2AccessToken(OAuth2Authorization tokenAuthorization, Instant issuedAt, boolean invalidated) {
+		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
+		when(tokenAuthorization.getTokens()).thenReturn(tokens);
+		Instant expiresAt = issuedAt.plusSeconds(3600);
+		Set<String> scopes = new HashSet<>(Arrays.asList("scope1", "Scope2"));
+		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token.123", issuedAt,
+				expiresAt, scopes);
+		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+				.thenReturn(Optional.of(accessToken));
+		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
+		when(tokens.getTokenMetadata(accessToken)).thenReturn(metadata);
+		when(metadata.isInvalidated()).thenReturn(invalidated);
+		when(this.decoder.decode("token.123")).thenThrow(JwtException.class);
+		return accessToken;
+	}
+	
+	/**
+	 * Creates an {@code OAuth2RefreshToken} with all the basic fields and with validity of one hour from the issuedAt parameter.
+	 * 
+	 * @param tokenAuthorization mock {@code OAuth2Authorization}
+	 * @return configured {@code OAuth2RefreshToken}
+	 */
+	private OAuth2RefreshToken retrieveOAuth2RefreshToken(OAuth2Authorization tokenAuthorization, Instant issuedAt, boolean invalidated) {
+		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
+		when(tokenAuthorization.getTokens()).thenReturn(tokens);
+		Instant expiresAt = issuedAt.plusSeconds(3600);
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("token.123", issuedAt,
+				expiresAt);
+		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+				.thenReturn(Optional.of(refreshToken));
+		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
+		when(tokens.getTokenMetadata(refreshToken)).thenReturn(metadata);
+		when(metadata.isInvalidated()).thenReturn(invalidated);
+		when(this.decoder.decode("token.123")).thenThrow(JwtException.class);
+		return refreshToken;
+	}
+	
+	/**
+	 * Creates a {@code Jwt.Builder} pre-configured with all the basic fields and with validity of one hour from the issuedAt parameter.
+	 * 
+	 * @param issuedAt {@code Instant} indicating time at which the resulting {@code Jwt} would be issued, token will expire one hour from this point 
+	 * @return a pre-configured {@code Jwt.Builder}
+	 */
+	private static Jwt.Builder createJwt(Instant issuedAt) {
+		return Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plusSeconds(3600)).issuedAt(issuedAt).notBefore(issuedAt).issuer("http://issuer1.com").jti("jti1").subject("subject1").claim(OAuth2ParameterNames.SCOPE, new HashSet<>(Arrays.asList("scope1", "Scope2")));
+	}
+
+	private static MockHttpServletRequest createTokenIntrospectionRequest(String token, String tokenTypeHint) {
+		String requestUri = OAuth2TokenIntrospectionEndpointFilter.DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI;
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
+		request.setServletPath(requestUri);
+
+		request.addParameter(OAuth2ParameterNames.TOKEN, token);
+		request.addParameter(OAuth2ParameterNames.TOKEN_TYPE_HINT, tokenTypeHint);
+		return request;
+	}
 }

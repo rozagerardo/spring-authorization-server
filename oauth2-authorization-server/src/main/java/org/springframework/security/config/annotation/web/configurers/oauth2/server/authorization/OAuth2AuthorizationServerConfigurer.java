@@ -84,7 +84,7 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 			OAuth2TokenEndpointFilter.DEFAULT_TOKEN_ENDPOINT_URI, HttpMethod.POST.name());
 	private final RequestMatcher tokenIntrospectionMatcher = new AntPathRequestMatcher(
 			OAuth2TokenIntrospectionEndpointFilter.DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI, HttpMethod.POST.name());
-        private final RequestMatcher tokenRevocationEndpointMatcher = new AntPathRequestMatcher(
+	private final RequestMatcher tokenRevocationEndpointMatcher = new AntPathRequestMatcher(
 			OAuth2TokenRevocationEndpointFilter.DEFAULT_TOKEN_REVOCATION_ENDPOINT_URI, HttpMethod.POST.name());
 	private final RequestMatcher jwkSetEndpointMatcher = new AntPathRequestMatcher(
 			JwkSetEndpointFilter.DEFAULT_JWK_SET_ENDPOINT_URI, HttpMethod.GET.name());
@@ -93,8 +93,7 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 	 * Sets the repository of registered clients.
 	 *
 	 * @param registeredClientRepository the repository of registered clients
-	 * @return the {@link OAuth2AuthorizationServerConfigurer} for further
-	 *         configuration
+	 * @return the {@link OAuth2AuthorizationServerConfigurer} for further configuration
 	 */
 	public OAuth2AuthorizationServerConfigurer<B> registeredClientRepository(
 			RegisteredClientRepository registeredClientRepository) {
@@ -107,11 +106,9 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 	 * Sets the authorization service.
 	 *
 	 * @param authorizationService the authorization service
-	 * @return the {@link OAuth2AuthorizationServerConfigurer} for further
-	 *         configuration
+	 * @return the {@link OAuth2AuthorizationServerConfigurer} for further configuration
 	 */
-	public OAuth2AuthorizationServerConfigurer<B> authorizationService(
-			OAuth2AuthorizationService authorizationService) {
+	public OAuth2AuthorizationServerConfigurer<B> authorizationService(OAuth2AuthorizationService authorizationService) {
 		Assert.notNull(authorizationService, "authorizationService cannot be null");
 		this.getBuilder().setSharedObject(OAuth2AuthorizationService.class, authorizationService);
 		return this;
@@ -130,11 +127,9 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 	}
 
 	/**
-	 * Returns a {@code List} of {@link RequestMatcher}'s for the authorization
-	 * server endpoints.
+	 * Returns a {@code List} of {@link RequestMatcher}'s for the authorization server endpoints.
 	 *
-	 * @return a {@code List} of {@link RequestMatcher}'s for the authorization
-	 *         server endpoints
+	 * @return a {@code List} of {@link RequestMatcher}'s for the authorization server endpoints
 	 */
 	public List<RequestMatcher> getEndpointMatchers() {
 		return Arrays.asList(this.authorizationEndpointMatcher, this.tokenEndpointMatcher, this.tokenIntrospectionMatcher,
@@ -153,28 +148,22 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 				getRegisteredClientRepository(builder), getAuthorizationService(builder), jwtEncoder);
 		builder.authenticationProvider(postProcess(authorizationCodeAuthenticationProvider));
 
-		OAuth2RefreshTokenAuthenticationProvider refreshTokenAuthenticationProvider =
-				new OAuth2RefreshTokenAuthenticationProvider(
-						getAuthorizationService(builder),
-						jwtEncoder);
+		OAuth2RefreshTokenAuthenticationProvider refreshTokenAuthenticationProvider = new OAuth2RefreshTokenAuthenticationProvider(
+				getAuthorizationService(builder), jwtEncoder);
 		builder.authenticationProvider(postProcess(refreshTokenAuthenticationProvider));
 
-		OAuth2ClientCredentialsAuthenticationProvider clientCredentialsAuthenticationProvider =
-				new OAuth2ClientCredentialsAuthenticationProvider(
-						getAuthorizationService(builder),
-						jwtEncoder);
+		OAuth2ClientCredentialsAuthenticationProvider clientCredentialsAuthenticationProvider = new OAuth2ClientCredentialsAuthenticationProvider(
+				getAuthorizationService(builder), jwtEncoder);
 		builder.authenticationProvider(postProcess(clientCredentialsAuthenticationProvider));
 
-		OAuth2TokenRevocationAuthenticationProvider tokenRevocationAuthenticationProvider =
-				new OAuth2TokenRevocationAuthenticationProvider(
-						getAuthorizationService(builder));
+		OAuth2TokenRevocationAuthenticationProvider tokenRevocationAuthenticationProvider = new OAuth2TokenRevocationAuthenticationProvider(
+				getAuthorizationService(builder));
 		builder.authenticationProvider(postProcess(tokenRevocationAuthenticationProvider));
 
 		ExceptionHandlingConfigurer<B> exceptionHandling = builder.getConfigurer(ExceptionHandlingConfigurer.class);
 		if (exceptionHandling != null) {
 			// Register the default AuthenticationEntryPoint for the token endpoint and token revocation endpoint
-			exceptionHandling.defaultAuthenticationEntryPointFor(
-					new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+			exceptionHandling.defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
 					new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher));
 		}
 	}
@@ -186,18 +175,15 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 
 		AuthenticationManager authenticationManager = builder.getSharedObject(AuthenticationManager.class);
 
-		OAuth2ClientAuthenticationFilter clientAuthenticationFilter =
-				new OAuth2ClientAuthenticationFilter(
-						authenticationManager,
-						new OrRequestMatcher(this.tokenEndpointMatcher, tokenIntrospectionMatcher, this.tokenRevocationEndpointMatcher));
+		OAuth2ClientAuthenticationFilter clientAuthenticationFilter = new OAuth2ClientAuthenticationFilter(authenticationManager,
+				new OrRequestMatcher(this.tokenEndpointMatcher, tokenIntrospectionMatcher, this.tokenRevocationEndpointMatcher));
 		builder.addFilterAfter(postProcess(clientAuthenticationFilter), AbstractPreAuthenticatedProcessingFilter.class);
 
 		RegisteredClientRepository registeredClientRepository = getRegisteredClientRepository(builder);
 
 		OAuth2AuthorizationEndpointFilter authorizationEndpointFilter = new OAuth2AuthorizationEndpointFilter(
 				registeredClientRepository, getAuthorizationService(builder));
-		builder.addFilterBefore(postProcess(authorizationEndpointFilter),
-				AbstractPreAuthenticatedProcessingFilter.class);
+		builder.addFilterBefore(postProcess(authorizationEndpointFilter), AbstractPreAuthenticatedProcessingFilter.class);
 
 		OAuth2TokenEndpointFilter tokenEndpointFilter = new OAuth2TokenEndpointFilter(authenticationManager,
 				getAuthorizationService(builder));
@@ -213,19 +199,16 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		}
 
 		OAuth2TokenIntrospectionEndpointFilter tokenIntrospectionEndpointFilter = new OAuth2TokenIntrospectionEndpointFilter(
-				registeredClientRepository, jwtDecoders, authenticationManager, getAuthorizationService(builder));
+				getAuthorizationService(builder), jwtDecoders);
 		builder.addFilterAfter(postProcess(tokenIntrospectionEndpointFilter), FilterSecurityInterceptor.class);
 
-		OAuth2TokenRevocationEndpointFilter tokenRevocationEndpointFilter =
-				new OAuth2TokenRevocationEndpointFilter(
-						authenticationManager);
+		OAuth2TokenRevocationEndpointFilter tokenRevocationEndpointFilter = new OAuth2TokenRevocationEndpointFilter(
+				authenticationManager);
 		builder.addFilterAfter(postProcess(tokenRevocationEndpointFilter), OAuth2TokenEndpointFilter.class);
 	}
 
-	private static <B extends HttpSecurityBuilder<B>> RegisteredClientRepository getRegisteredClientRepository(
-			B builder) {
-		RegisteredClientRepository registeredClientRepository = builder
-				.getSharedObject(RegisteredClientRepository.class);
+	private static <B extends HttpSecurityBuilder<B>> RegisteredClientRepository getRegisteredClientRepository(B builder) {
+		RegisteredClientRepository registeredClientRepository = builder.getSharedObject(RegisteredClientRepository.class);
 		if (registeredClientRepository == null) {
 			registeredClientRepository = getRegisteredClientRepositoryBean(builder);
 			builder.setSharedObject(RegisteredClientRepository.class, registeredClientRepository);
@@ -233,8 +216,7 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		return registeredClientRepository;
 	}
 
-	private static <B extends HttpSecurityBuilder<B>> RegisteredClientRepository getRegisteredClientRepositoryBean(
-			B builder) {
+	private static <B extends HttpSecurityBuilder<B>> RegisteredClientRepository getRegisteredClientRepositoryBean(B builder) {
 		return builder.getSharedObject(ApplicationContext.class).getBean(RegisteredClientRepository.class);
 	}
 
@@ -250,15 +232,13 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		return authorizationService;
 	}
 
-	private static <B extends HttpSecurityBuilder<B>> OAuth2AuthorizationService getAuthorizationServiceBean(
-			B builder) {
-		Map<String, OAuth2AuthorizationService> authorizationServiceMap = BeanFactoryUtils
-				.beansOfTypeIncludingAncestors(builder.getSharedObject(ApplicationContext.class),
-						OAuth2AuthorizationService.class);
+	private static <B extends HttpSecurityBuilder<B>> OAuth2AuthorizationService getAuthorizationServiceBean(B builder) {
+		Map<String, OAuth2AuthorizationService> authorizationServiceMap = BeanFactoryUtils.beansOfTypeIncludingAncestors(
+				builder.getSharedObject(ApplicationContext.class), OAuth2AuthorizationService.class);
 		if (authorizationServiceMap.size() > 1) {
 			throw new NoUniqueBeanDefinitionException(OAuth2AuthorizationService.class, authorizationServiceMap.size(),
-					"Expected single matching bean of type '" + OAuth2AuthorizationService.class.getName()
-							+ "' but found " + authorizationServiceMap.size() + ": "
+					"Expected single matching bean of type '" + OAuth2AuthorizationService.class.getName() + "' but found "
+							+ authorizationServiceMap.size() + ": "
 							+ StringUtils.collectionToCommaDelimitedString(authorizationServiceMap.keySet()));
 		}
 		return (!authorizationServiceMap.isEmpty() ? authorizationServiceMap.values().iterator().next() : null);
