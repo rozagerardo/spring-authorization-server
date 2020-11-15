@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -221,7 +222,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getClientId());
 
-		Instant issuedAt = Instant.now().minusSeconds(7200);
+		Instant issuedAt = Instant.now().minus(Duration.ofHours(2));
 		retrieveOAuth2AccessToken(tokenAuthorization, issuedAt, false);
 
 		this.filter.doFilter(request, response, filterChain);
@@ -285,7 +286,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
 				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
-				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))))
 		.hasEntrySatisfying(OAuth2ParameterNames.SCOPE, scopesMatchesInAnyOrder)
 		.hasSize(6);
@@ -321,7 +322,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(jsonResponseObject).containsOnly(
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))));
 		// @formatter: on
 	}
@@ -358,7 +359,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
 				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
-				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
 				entry(JwtClaimNames.NBF, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
 				entry(JwtClaimNames.AUD, Collections.singletonList("audience1")),
@@ -394,7 +395,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		retrieveAbstractOAuth2Token(tokenAuthorization);
 		Instant issuedAt = Instant.now();
 		
-		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plusSeconds(3600)).issuedAt(issuedAt).issuer("http://issuer1.com").subject("subject1").build();
+		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plus(Duration.ofHours(1))).issuedAt(issuedAt).issuer("http://issuer1.com").subject("subject1").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
 
 		this.filter.doFilter(request, response, filterChain);
@@ -409,7 +410,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(jsonResponseObject).containsOnly(entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
 				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
-				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plusSeconds(3600).getEpochSecond()))),
+				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
 				entry(JwtClaimNames.AUD, Collections.singletonList("audience1")),
 				entry(JwtClaimNames.ISS, "http://issuer1.com"),
@@ -505,7 +506,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
 
 		retrieveAbstractOAuth2Token(tokenAuthorization);
-		Instant issuedAt = Instant.now().minusSeconds(7200);
+		Instant issuedAt = Instant.now().minus(Duration.ofHours(2));
 		
 		Jwt jwt = createJwt(issuedAt).claim("customClaim", "customValue").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
@@ -671,7 +672,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 	private OAuth2AccessToken retrieveOAuth2AccessToken(OAuth2Authorization tokenAuthorization, Instant issuedAt, boolean invalidated) {
 		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
 		when(tokenAuthorization.getTokens()).thenReturn(tokens);
-		Instant expiresAt = issuedAt.plusSeconds(3600);
+		Instant expiresAt = issuedAt.plus(Duration.ofHours(1));
 		Set<String> scopes = new HashSet<>(Arrays.asList("scope1", "Scope2"));
 		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token.123", issuedAt,
 				expiresAt, scopes);
@@ -693,7 +694,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 	private OAuth2RefreshToken retrieveOAuth2RefreshToken(OAuth2Authorization tokenAuthorization, Instant issuedAt, boolean invalidated) {
 		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
 		when(tokenAuthorization.getTokens()).thenReturn(tokens);
-		Instant expiresAt = issuedAt.plusSeconds(3600);
+		Instant expiresAt = issuedAt.plus(Duration.ofHours(1));
 		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("token.123", issuedAt,
 				expiresAt);
 		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
@@ -712,7 +713,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 	 * @return a pre-configured {@code Jwt.Builder}
 	 */
 	private static Jwt.Builder createJwt(Instant issuedAt) {
-		return Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plusSeconds(3600)).issuedAt(issuedAt).notBefore(issuedAt).issuer("http://issuer1.com").jti("jti1").subject("subject1").claim(OAuth2ParameterNames.SCOPE, new HashSet<>(Arrays.asList("scope1", "Scope2")));
+		return Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plus(Duration.ofHours(1))).issuedAt(issuedAt).notBefore(issuedAt).issuer("http://issuer1.com").jti("jti1").subject("subject1").claim(OAuth2ParameterNames.SCOPE, new HashSet<>(Arrays.asList("scope1", "Scope2")));
 	}
 
 	private static MockHttpServletRequest createTokenIntrospectionRequest(String token, String tokenTypeHint) {

@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken2;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.Version;
@@ -35,6 +36,7 @@ import org.springframework.util.Assert;
  * A container for OAuth 2.0 Tokens.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  * @since 0.0.3
  * @see OAuth2Authorization
  * @see OAuth2TokenMetadata
@@ -124,8 +126,7 @@ public class OAuth2Tokens implements Serializable {
 		if (tokenType.isPresent()) {
 			return this.getToken(tokenType.get()).filter(token -> token.getTokenValue().equals(tokenValue));
 		} else {
-			return this.tokens.values().stream()
-					.filter(tHolder -> tHolder.getToken().getTokenValue().equals(tokenValue))
+			return this.tokens.values().stream().filter(tHolder -> tHolder.getToken().getTokenValue().equals(tokenValue))
 					.map(tHolder -> tHolder.getToken()).findFirst();
 		}
 	}
@@ -134,15 +135,14 @@ public class OAuth2Tokens implements Serializable {
 	 * Returns the token metadata associated to the provided {@code token}.
 	 *
 	 * @param token the token
-	 * @param <T> the type of the token
+	 * @param <T>   the type of the token
 	 * @return the token metadata, or {@code null} if not available
 	 */
 	@Nullable
 	public <T extends AbstractOAuth2Token> OAuth2TokenMetadata getTokenMetadata(T token) {
 		Assert.notNull(token, "token cannot be null");
 		OAuth2TokenHolder tokenHolder = this.tokens.get(token.getClass());
-		return (tokenHolder != null && tokenHolder.getToken().equals(token)) ?
-				tokenHolder.getTokenMetadata() : null;
+		return (tokenHolder != null && tokenHolder.getToken().equals(token)) ? tokenHolder.getTokenMetadata() : null;
 	}
 
 	@Override
@@ -172,8 +172,7 @@ public class OAuth2Tokens implements Serializable {
 	}
 
 	/**
-	 * Returns a new {@link Builder}, initialized with the values from the provided
-	 * {@code tokens}.
+	 * Returns a new {@link Builder}, initialized with the values from the provided {@code tokens}.
 	 *
 	 * @param tokens the tokens used for initializing the {@link Builder}
 	 * @return the {@link Builder}
@@ -209,8 +208,7 @@ public class OAuth2Tokens implements Serializable {
 		}
 
 		/**
-		 * Sets the {@link OAuth2AccessToken access token} and associated
-		 * {@link OAuth2TokenMetadata token metadata}.
+		 * Sets the {@link OAuth2AccessToken access token} and associated {@link OAuth2TokenMetadata token metadata}.
 		 *
 		 * @param accessToken   the {@link OAuth2AccessToken}
 		 * @param tokenMetadata the {@link OAuth2TokenMetadata}
@@ -231,8 +229,7 @@ public class OAuth2Tokens implements Serializable {
 		}
 
 		/**
-		 * Sets the {@link OAuth2RefreshToken refresh token} and associated
-		 * {@link OAuth2TokenMetadata token metadata}.
+		 * Sets the {@link OAuth2RefreshToken refresh token} and associated {@link OAuth2TokenMetadata token metadata}.
 		 *
 		 * @param refreshToken  the {@link OAuth2RefreshToken}
 		 * @param tokenMetadata the {@link OAuth2TokenMetadata}
@@ -321,15 +318,14 @@ public class OAuth2Tokens implements Serializable {
 	}
 
 	/**
-	 * Enum to map a {@code TokenType} to a corresponding class extending
-	 * {@code AbstractOAuth2Token}.
+	 * Enum to map a {@code TokenType} to a corresponding class extending {@code AbstractOAuth2Token}.
 	 * 
 	 * @author Gerardo Roza
 	 *
 	 */
 	private enum TokenTypeMapping {
 		ACCESS_TOKEN(TokenType.ACCESS_TOKEN, OAuth2AccessToken.class),
-		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class),
+		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class), ID_TOKEN(TokenType.ID_TOKEN, OidcIdToken.class),
 		AUTHORIZATION_CODE(TokenType.AUTHORIZATION_CODE, OAuth2AuthorizationCode.class);
 
 		private final TokenType tokenType;

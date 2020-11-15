@@ -32,7 +32,7 @@ import org.springframework.util.Assert;
  * expired.
  * 
  * @author Gerardo Roza
- *
+ * @since 0.0.4
  */
 public class TokenExpirationValidator implements OAuth2TokenValidator<AbstractOAuth2Token> {
 
