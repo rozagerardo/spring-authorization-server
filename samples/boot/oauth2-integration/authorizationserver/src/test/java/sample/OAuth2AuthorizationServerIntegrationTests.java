@@ -56,22 +56,22 @@ public class OAuth2AuthorizationServerIntegrationTests {
 		String urlPatternRegex = "^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
 
 		// @formatter:off
-		result = mvc
-				.perform(post(DEFAULT_TOKEN_INTROSPECTION_ENDPOINT).with(anonymous())
-						.with(httpBasic(CLIENT_ID, CLIENT_SECRET)).param("token", token)
-						.param("token_type_hint", "access_token"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.active", is(true)))
-				.andExpect(jsonPath("$.scope", is("message.read")))
-				.andExpect(jsonPath("$.sub", is("user")))
-				.andExpect(jsonPath("$.aud", contains("messaging-client")))
-				.andExpect(jsonPath("$.iss", matchesPattern(urlPatternRegex)))
-				.andExpect(jsonPath("$.token_type", is("Bearer")))
-				.andExpect(jsonPath("$.client_id").isString())
-				.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.nbf", lessThan(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class))
-				.andReturn();
+		mvc.perform(post(DEFAULT_TOKEN_INTROSPECTION_ENDPOINT)
+				.with(anonymous())
+				.with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+				.param("token", token)
+				.param("token_type_hint", "access_token"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.active", is(true)))
+			.andExpect(jsonPath("$.scope", is("message.read")))
+			.andExpect(jsonPath("$.sub", is("user")))
+			.andExpect(jsonPath("$.aud", contains("messaging-client")))
+			.andExpect(jsonPath("$.iss", matchesPattern(urlPatternRegex)))
+			.andExpect(jsonPath("$.token_type", is("Bearer")))
+			.andExpect(jsonPath("$.client_id").isString())
+			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
+			.andExpect(jsonPath("$.nbf", lessThan(Instant.now().getEpochSecond()),Long.class))
+			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class));
 		// @formatter:on
 	}
 

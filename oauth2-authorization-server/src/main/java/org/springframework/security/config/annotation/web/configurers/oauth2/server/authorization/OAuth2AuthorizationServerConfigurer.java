@@ -164,7 +164,8 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		if (exceptionHandling != null) {
 			// Register the default AuthenticationEntryPoint for the token endpoint and token revocation endpoint
 			exceptionHandling.defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-					new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher));
+					new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher,
+							this.tokenIntrospectionMatcher));
 		}
 	}
 
