@@ -42,6 +42,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 /**
  * @author Joe Grandja
  * @author Daniel Garnier-Moiroux
+ * @author Gerardo Roza
  */
 public class TestOAuth2Authorizations {
 
@@ -63,12 +64,16 @@ public class TestOAuth2Authorizations {
 		OAuth2AuthorizationCode authorizationCode = new OAuth2AuthorizationCode("code", Instant.now(),
 				Instant.now().plusSeconds(120));
 		String accessTokenValue = "access-token";
+		Instant accessTokenIssuedAt = Instant.now();
+		Instant accessTokenExpiresAt = accessTokenIssuedAt.plusSeconds(300);
 		if (jwtEncoder != null) {
-			accessTokenValue = issueJwtAccessToken(jwtEncoder, "user-1", registeredClient.getClientId(),
-					registeredClient.getScopes()).getTokenValue();
+			Jwt jwt = issueJwtAccessToken(jwtEncoder, "user-1", registeredClient.getClientId(), registeredClient.getScopes());
+			accessTokenValue = jwt.getTokenValue();
+			accessTokenIssuedAt = jwt.getIssuedAt();
+			accessTokenExpiresAt = jwt.getExpiresAt();
 		}
-		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, accessTokenValue, Instant.now(),
-				Instant.now().plusSeconds(300));
+		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, accessTokenValue,
+				accessTokenIssuedAt, accessTokenExpiresAt);
 		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken2("refresh-token", Instant.now(),
 				Instant.now().plus(1, ChronoUnit.HOURS));
 		OAuth2AuthorizationRequest authorizationRequest = OAuth2AuthorizationRequest.authorizationCode()
