@@ -15,6 +15,7 @@
  */
 package org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization;
 
+import java.security.Key;
 import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,8 +32,10 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.ExceptionHandlingConfigurer;
+import org.springframework.security.crypto.key.AsymmetricKey;
+import org.springframework.security.crypto.key.CryptoKey;
 import org.springframework.security.crypto.key.CryptoKeySource;
-import org.springframework.security.crypto.keys.ManagedKey;
+import org.springframework.security.crypto.key.SymmetricKey;
 import org.springframework.security.oauth2.jose.jws.NimbusJwsEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -191,11 +194,13 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		builder.addFilterAfter(postProcess(tokenEndpointFilter), FilterSecurityInterceptor.class);
 
 		Collection<JwtDecoder> jwtDecoders = new ArrayList<>();
-		for (ManagedKey key : getKeyManager(builder).getKeys()) {
-			if (key.isAsymmetric() && key.getPublicKey() instanceof RSAPublicKey) {
-				jwtDecoders.add(NimbusJwtDecoder.withPublicKey((RSAPublicKey) key.getPublicKey()).build());
-			} else {
-				jwtDecoders.add(NimbusJwtDecoder.withSecretKey(key.getKey()).build());
+		for (CryptoKey<? extends Key> cryptoKey : getKeySource(builder).getKeys()) {
+			if (AsymmetricKey.class.isAssignableFrom(cryptoKey.getClass())
+					&& RSAPublicKey.class.isAssignableFrom(((AsymmetricKey) cryptoKey).getPublicKey().getClass())) {
+				jwtDecoders
+						.add(NimbusJwtDecoder.withPublicKey((RSAPublicKey) ((AsymmetricKey) cryptoKey).getPublicKey()).build());
+			} else if (SymmetricKey.class.isAssignableFrom(cryptoKey.getClass())) {
+				jwtDecoders.add(NimbusJwtDecoder.withSecretKey(((SymmetricKey) cryptoKey).getKey()).build());
 			}
 		}
 

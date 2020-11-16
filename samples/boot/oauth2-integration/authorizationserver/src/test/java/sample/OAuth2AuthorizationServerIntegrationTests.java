@@ -47,8 +47,7 @@ public class OAuth2AuthorizationServerIntegrationTests {
 
 	@Test
 	@WithMockUser
-	void givenValidToken_whenIntrospectToken_thenOkResponseWithPopulatedFields(@Autowired MockMvc mvc)
-			throws Exception {
+	void givenValidToken_whenIntrospectToken_thenOkResponseWithPopulatedFields(@Autowired MockMvc mvc) throws Exception {
 		MvcResult result = obtainAccessTokenResponse(mvc);
 
 		String token = JsonPath.read(result.getResponse().getContentAsString(), "$.access_token");
@@ -77,8 +76,7 @@ public class OAuth2AuthorizationServerIntegrationTests {
 
 	@Test
 	@WithMockUser
-	void givenNonExistingToken_whenIntrospectToken_thenOkResponseWithNonActiveToken(@Autowired MockMvc mvc)
-			throws Exception {
+	void givenNonExistingToken_whenIntrospectToken_thenOkResponseWithNonActiveToken(@Autowired MockMvc mvc) throws Exception {
 		// @formatter:off
 		mvc.perform(post(DEFAULT_TOKEN_INTROSPECTION_ENDPOINT).with(httpBasic(CLIENT_ID, CLIENT_SECRET)).param("token",
 				"nonExisting"))
@@ -99,32 +97,29 @@ public class OAuth2AuthorizationServerIntegrationTests {
 	private MvcResult obtainAccessTokenResponse(MockMvc mvc) throws Exception {
 		// authorize/consent page
 		MvcResult result = mvc
-				.perform(get(DEFAULT_AUTHORIZE_ENDPOINT)
-						.queryParam("client_id", CLIENT_ID).queryParam("response_type", "code")
+				.perform(get(DEFAULT_AUTHORIZE_ENDPOINT).queryParam("client_id", CLIENT_ID).queryParam("response_type", "code")
 						.queryParam("scope", SCOPE).queryParam("redirect_uri", REDIRECT_URI).queryParam("state", "123"))
 				.andExpect(status().isOk())
-				.andExpect(
-						content().string(allOf(containsString("Consent required"), containsString("messaging-client"),
-								containsString("message.read"), not(containsString("message.write")))))
+				.andExpect(content().string(allOf(containsString("Consent required"), containsString("messaging-client"),
+						containsString("message.read"), not(containsString("message.write")))))
 				.andReturn();
 
 		// consent response
 		String state = result.getResponse().getContentAsString().split("state\" value=\"")[1].split("\"")[0];
-		result = mvc
-				.perform(post(DEFAULT_AUTHORIZE_ENDPOINT).param("client_id", CLIENT_ID).param("scope", SCOPE)
-						.param("consent_action", "approve").param("state", state))
-				.andExpect(status().isFound()).andReturn();
+		result = mvc.perform(post(DEFAULT_AUTHORIZE_ENDPOINT).param("client_id", CLIENT_ID).param("scope", SCOPE)
+				.param("consent_action", "approve").param("state", state)).andExpect(status().isFound()).andReturn();
 
-		UriComponents redirectedUri = UriComponentsBuilder
-				.fromUriString(result.getResponse().getHeader(HttpHeaders.LOCATION)).build();
+		UriComponents redirectedUri = UriComponentsBuilder.fromUriString(result.getResponse().getHeader(HttpHeaders.LOCATION))
+				.build();
 
 		// redirect to client endpoint
 		assertThat(redirectedUri.toUri()).hasParameter("state", "123").hasParameter("code");
 		String authCode = redirectedUri.getQueryParams().getFirst("code");
 
 		// token request
-		return mvc.perform(post(DEFAULT_TOKEN_ENDPOINT).with(httpBasic(CLIENT_ID, CLIENT_SECRET))
-				.param("grant_type", "authorization_code").param("code", authCode).param("redirect_uri", REDIRECT_URI))
+		return mvc
+				.perform(post(DEFAULT_TOKEN_ENDPOINT).with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+						.param("grant_type", "authorization_code").param("code", authCode).param("redirect_uri", REDIRECT_URI))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.access_token", notNullValue())).andReturn();
 
 	}

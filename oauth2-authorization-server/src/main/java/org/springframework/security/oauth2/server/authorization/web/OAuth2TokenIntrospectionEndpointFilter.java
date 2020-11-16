@@ -64,7 +64,7 @@ import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse;
-import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames2;
 import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMessageConverter;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -162,16 +162,16 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		MultiValueMap<String, String> parameters = OAuth2EndpointUtils.getParameters(request);
 		try {
 			// token (REQUIRED)
-			String token = parameters.getFirst(OAuth2ParameterNames.TOKEN);
-			if (!StringUtils.hasText(token) || parameters.get(OAuth2ParameterNames.TOKEN).size() != 1) {
-				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN);
+			String token = parameters.getFirst(OAuth2ParameterNames2.TOKEN);
+			if (!StringUtils.hasText(token) || parameters.get(OAuth2ParameterNames2.TOKEN).size() != 1) {
+				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames2.TOKEN);
 			}
 
 			// token_type_hint (OPTIONAL)
-			Optional<TokenType> tokenTypeHint = Optional.ofNullable(parameters.getFirst(OAuth2ParameterNames.TOKEN_TYPE_HINT))
+			Optional<TokenType> tokenTypeHint = Optional.ofNullable(parameters.getFirst(OAuth2ParameterNames2.TOKEN_TYPE_HINT))
 					.map(TokenType::new);
-			if (tokenTypeHint.isPresent() && parameters.get(OAuth2ParameterNames.TOKEN_TYPE_HINT).size() != 1) {
-				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames.TOKEN_TYPE_HINT);
+			if (tokenTypeHint.isPresent() && parameters.get(OAuth2ParameterNames2.TOKEN_TYPE_HINT).size() != 1) {
+				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames2.TOKEN_TYPE_HINT);
 			}
 
 			TokenIntrospectionSuccessResponse tokenIntrospectionResponse;
@@ -191,7 +191,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 				}
 
 				// we've obtained the authorization from the token, we shouldn't expect an empty response here
-				AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token, tokenTypeHint).get();
+				AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token).get();
 				if (authorization.getTokens().getTokenMetadata(oauthToken).isInvalidated()) {
 					throw new InvalidTokenException("Token has been invalidated");
 				}
@@ -337,7 +337,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 			Optional.ofNullable(jwt.getAudience()).map(audienceList -> audienceList.stream().map(Audience::new).collect(toList()))
 					.ifPresent(builder::audience);
 			Optional.ofNullable(jwt.getNotBefore()).map(Date::from).ifPresent(builder::notBeforeTime);
-			Optional.ofNullable(jwt.getClaimAsStringList(OAuth2ParameterNames.SCOPE))
+			Optional.ofNullable(jwt.getClaimAsStringList(OAuth2ParameterNames2.SCOPE))
 					.map(scopes -> Scope.parse(String.join(" ", scopes))).ifPresent(builder::scope);
 
 			Optional.ofNullable(jwt.getIssuer()).map(issuer -> {
