@@ -15,12 +15,6 @@
  */
 package org.springframework.security.oauth2.server.authorization.token;
 
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-
 import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -31,6 +25,12 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.Version;
 import org.springframework.util.Assert;
+
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A container for OAuth 2.0 Tokens.
@@ -95,11 +95,10 @@ public class OAuth2Tokens implements Serializable {
 	 * @param <T>       the type of the token
 	 * @return the token, or {@code null} if not available
 	 */
-	@Nullable
 	public Optional<AbstractOAuth2Token> getToken(TokenType tokenType) {
 		Assert.notNull(tokenType, "tokenType cannot be null");
 		return TokenTypeMapping.get(tokenType).map(tType -> this.tokens.get(tType.getTokenTypeClass()))
-				.map(tHolder -> tHolder.getToken());
+				.map(OAuth2TokenHolder::getToken);
 	}
 
 	/**
@@ -108,27 +107,10 @@ public class OAuth2Tokens implements Serializable {
 	 * @param tokenValue the token value
 	 * @return an optional wrapped {@code AbstractOAuth2Token}
 	 */
-	@Nullable
 	public Optional<AbstractOAuth2Token> getToken(String tokenValue) {
-		return getToken(tokenValue, Optional.empty());
-	}
-
-	/**
-	 * Returns the token specified by a token value string and a {@code TokenType}.
-	 * 
-	 * @param tokenValue the token value
-	 * @param tokenType  the token type
-	 * @return an optional wrapped token
-	 */
-	@Nullable
-	public Optional<AbstractOAuth2Token> getToken(String tokenValue, Optional<TokenType> tokenType) {
-		Assert.notNull(tokenValue, "Token Type code cannot be null");
-		if (tokenType.isPresent()) {
-			return this.getToken(tokenType.get()).filter(token -> token.getTokenValue().equals(tokenValue));
-		} else {
-			return this.tokens.values().stream().filter(tHolder -> tHolder.getToken().getTokenValue().equals(tokenValue))
-					.map(tHolder -> tHolder.getToken()).findFirst();
-		}
+		Assert.notNull(tokenValue, "token cannot be null");
+		return this.tokens.values().stream().filter(tHolder -> tHolder.getToken().getTokenValue().equals(tokenValue))
+				.map(OAuth2TokenHolder::getToken).findFirst();
 	}
 
 	/**
@@ -319,13 +301,14 @@ public class OAuth2Tokens implements Serializable {
 
 	/**
 	 * Enum to map a {@code TokenType} to a corresponding class extending {@code AbstractOAuth2Token}.
-	 * 
+	 *
 	 * @author Gerardo Roza
 	 *
 	 */
 	private enum TokenTypeMapping {
 		ACCESS_TOKEN(TokenType.ACCESS_TOKEN, OAuth2AccessToken.class),
-		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class), ID_TOKEN(TokenType.ID_TOKEN, OidcIdToken.class),
+		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class),
+		ID_TOKEN(TokenType.ID_TOKEN, OidcIdToken.class),
 		AUTHORIZATION_CODE(TokenType.AUTHORIZATION_CODE, OAuth2AuthorizationCode.class);
 
 		private final TokenType tokenType;

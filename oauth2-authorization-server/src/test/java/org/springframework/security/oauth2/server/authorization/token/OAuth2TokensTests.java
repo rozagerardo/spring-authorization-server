@@ -18,12 +18,6 @@ package org.springframework.security.oauth2.server.authorization.token;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Optional;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -31,10 +25,17 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.server.authorization.TokenType;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Optional;
+
 /**
  * Tests for {@link OAuth2Tokens}.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  */
 public class OAuth2TokensTests {
 	private OAuth2AccessToken accessToken;
@@ -47,8 +48,8 @@ public class OAuth2TokensTests {
 		this.accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "access-token", issuedAt,
 				issuedAt.plus(Duration.ofMinutes(5)), new HashSet<>(Arrays.asList("read", "write")));
 		this.refreshToken = new OAuth2RefreshToken("refresh-token", issuedAt);
-		this.idToken = OidcIdToken.withTokenValue("id-token").issuer("https://provider.com").subject("subject").issuedAt(issuedAt)
-				.expiresAt(issuedAt.plus(Duration.ofMinutes(30))).build();
+		this.idToken = OidcIdToken.withTokenValue("id-token").issuer("https://provider.com").subject("subject")
+				.issuedAt(issuedAt).expiresAt(issuedAt.plus(Duration.ofMinutes(30))).build();
 	}
 
 	@Test
@@ -78,7 +79,7 @@ public class OAuth2TokensTests {
 	@Test
 	public void getTokenWhenTokenNullThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> OAuth2Tokens.builder().build().getToken((String) null))
-				.isInstanceOf(IllegalArgumentException.class).hasMessage("token cannot be empty");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("token cannot be null");
 	}
 
 	@Test
@@ -96,7 +97,7 @@ public class OAuth2TokensTests {
 	@Test
 	public void getTokenWhenUsingNullTokenTypeThenThrowIllegalArgumentException() {
 		assertThatThrownBy(() -> OAuth2Tokens.builder().build().getToken((String) null))
-				.isInstanceOf(IllegalArgumentException.class).hasMessage("tokenType cannot be null");
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("token cannot be null");
 	}
 
 	@Test
@@ -140,7 +141,8 @@ public class OAuth2TokensTests {
 	public void buildWhenTokenMetadataProvidedThenTokenMetadataIsSet() {
 		OAuth2TokenMetadata expectedTokenMetadata = OAuth2TokenMetadata.builder().build();
 		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken, expectedTokenMetadata)
-				.refreshToken(this.refreshToken, expectedTokenMetadata).token(this.idToken, expectedTokenMetadata).build();
+				.refreshToken(this.refreshToken, expectedTokenMetadata).token(this.idToken, expectedTokenMetadata)
+				.build();
 
 		assertThat(tokens.getAccessToken()).isEqualTo(this.accessToken);
 		OAuth2TokenMetadata tokenMetadata = tokens.getTokenMetadata(tokens.getAccessToken());
@@ -164,8 +166,9 @@ public class OAuth2TokensTests {
 		OAuth2TokenMetadata tokenMetadata = tokens.getTokenMetadata(tokens.getAccessToken());
 		assertThat(tokenMetadata).isEqualTo(expectedTokenMetadata);
 
-		OAuth2AccessToken otherAccessToken = new OAuth2AccessToken(this.accessToken.getTokenType(), "other-access-token",
-				this.accessToken.getIssuedAt(), this.accessToken.getExpiresAt(), this.accessToken.getScopes());
+		OAuth2AccessToken otherAccessToken = new OAuth2AccessToken(this.accessToken.getTokenType(),
+				"other-access-token", this.accessToken.getIssuedAt(), this.accessToken.getExpiresAt(),
+				this.accessToken.getScopes());
 		assertThat(tokens.getTokenMetadata(otherAccessToken)).isNull();
 	}
 
@@ -173,7 +176,8 @@ public class OAuth2TokensTests {
 	public void getTokenWhenUsingTokenValueAndTokenTypeThenTokensRetrieved() {
 		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken).refreshToken(this.refreshToken)
 				.token(this.idToken).build();
-		assertThat(tokens.getToken("access-token", Optional.of(TokenType.ACCESS_TOKEN))).isPresent().contains(this.accessToken);
+		assertThat(tokens.getToken("access-token", Optional.of(TokenType.ACCESS_TOKEN))).isPresent()
+				.contains(this.accessToken);
 		assertThat(tokens.getToken("refresh-token", Optional.of(TokenType.REFRESH_TOKEN))).isPresent()
 				.contains(this.refreshToken);
 		assertThat(tokens.getToken("id-token", Optional.of(TokenType.ID_TOKEN))).isPresent().contains(this.idToken);

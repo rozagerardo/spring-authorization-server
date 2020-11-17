@@ -66,6 +66,7 @@ import java.util.Map;
  * An {@link AbstractHttpConfigurer} for OAuth 2.0 Authorization Server support.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  * @since 0.0.1
  * @see AbstractHttpConfigurer
  * @see RegisteredClientRepository

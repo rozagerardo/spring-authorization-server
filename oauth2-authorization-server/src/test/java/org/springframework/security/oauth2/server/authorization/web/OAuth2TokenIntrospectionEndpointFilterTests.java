@@ -26,17 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-
-import javax.servlet.FilterChain;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
 
 import org.assertj.core.api.Condition;
 import org.junit.After;
@@ -56,7 +46,8 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
-import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken2;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames2;
 import org.springframework.security.oauth2.core.http.converter.OAuth2ErrorHttpMessageConverter;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
@@ -72,7 +63,17 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.oauth2.server.authorization.token.OAuth2Tokens;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenIntrospectionEndpointFilter.NimbusTokenIntrospectionResponseHttpMessageConverter;
 
-import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import net.minidev.json.JSONObject;
 
@@ -94,7 +95,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 	@Before
 	public void setUp() {
 		this.authorizationService = mock(OAuth2AuthorizationService.class);
-		this.filter = new OAuth2TokenIntrospectionEndpointFilter(authorizationService, Collections.singletonList(decoder));
+		this.filter = new OAuth2TokenIntrospectionEndpointFilter(authorizationService,
+				Collections.singletonList(decoder));
 	}
 
 	@After
@@ -104,8 +106,9 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void constructorWhenAuthorizationServiceNullThenThrowIllegalArgumentException() {
-		assertThatThrownBy(() -> new OAuth2TokenIntrospectionEndpointFilter(null, Collections.singletonList(this.decoder)))
-				.isInstanceOf(IllegalArgumentException.class).hasMessage("authorizationService cannot be null");
+		assertThatThrownBy(
+				() -> new OAuth2TokenIntrospectionEndpointFilter(null, Collections.singletonList(this.decoder)))
+						.isInstanceOf(IllegalArgumentException.class).hasMessage("authorizationService cannot be null");
 	}
 
 	@Test
@@ -143,35 +146,38 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenIntrospectionRequestMissingTokenParamThenInvalidRequestError() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
-		request.removeParameter(OAuth2ParameterNames.TOKEN);
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
+		request.removeParameter(OAuth2ParameterNames2.TOKEN);
 
-		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN,
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames2.TOKEN,
 				OAuth2ErrorCodes.INVALID_REQUEST, request);
-
 	}
 
 	@Test
 	public void doFilterWhenTokenRequestMultipleTokenParamThenInvalidRequestError() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
-		request.addParameter(OAuth2ParameterNames.TOKEN, "token.456");
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
+		request.addParameter(OAuth2ParameterNames2.TOKEN, "token.456");
 
-		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN,
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames2.TOKEN,
 				OAuth2ErrorCodes.INVALID_REQUEST, request);
 	}
 
 	@Test
 	public void doFilterWhenTokenRequestMultipleTokenTypeHintParamThenInvalidRequestError() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
-		request.addParameter(OAuth2ParameterNames.TOKEN_TYPE_HINT, TokenType.REFRESH_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
+		request.addParameter(OAuth2ParameterNames2.TOKEN_TYPE_HINT, TokenType.REFRESH_TOKEN.getValue());
 
-		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames.TOKEN_TYPE_HINT,
+		doFilterWhenTokenIntrospectionRequestInvalidParameterThenError(OAuth2ParameterNames2.TOKEN_TYPE_HINT,
 				OAuth2ErrorCodes.INVALID_REQUEST, request);
 	}
 
 	@Test
 	public void doFilterWhenIntrospectNonExistingTokenThenNotActiveTokenOkReponse() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
 
@@ -189,7 +195,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenIntrospectTokenFromDifferentClientThenNotActiveTokenOkReponse() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
 
@@ -210,7 +217,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenIntrospectExpiredTokenThenNotActiveTokenOkReponse() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
 
@@ -234,7 +242,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenIntrospectInvalidatedTokenThenNotActiveTokenOkReponse() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
 
@@ -258,7 +267,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 	@Test
 	public void doFilterWhenIntrospectValidAccessTokenThenValidTokenResponse() throws Exception {
-		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
+		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123",
+				TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
 
@@ -285,14 +295,14 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(jsonResponseObject).contains(
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(OAuth2ParameterNames2.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
 				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))))
-		.hasEntrySatisfying(OAuth2ParameterNames.SCOPE, scopesMatchesInAnyOrder)
+		.hasEntrySatisfying(OAuth2ParameterNames2.SCOPE, scopesMatchesInAnyOrder)
 		.hasSize(6);
 		// @formatter: on
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectValidRefreshTokenThenValidTokenResponse() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
@@ -326,7 +336,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))));
 		// @formatter: on
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectValidJwtTokenThenValidTokenResponse() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
@@ -342,14 +352,14 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 		retrieveAbstractOAuth2Token(tokenAuthorization);
 		Instant issuedAt = Instant.now();
-		
+
 		Jwt jwt = createJwt(issuedAt).claim("customClaim", "customValue").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
 
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
+
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
@@ -358,7 +368,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(jsonResponseObject).contains(
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(OAuth2ParameterNames2.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
 				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
 				entry(JwtClaimNames.NBF, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
@@ -366,17 +376,17 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				entry(JwtClaimNames.ISS, "https://issuer1.com"),
 				entry(JwtClaimNames.JTI, "jti1"),
 				entry(JwtClaimNames.SUB, "subject1"))
-		.hasEntrySatisfying(OAuth2ParameterNames.SCOPE, scopesMatchesInAnyOrder)
+		.hasEntrySatisfying(OAuth2ParameterNames2.SCOPE, scopesMatchesInAnyOrder)
 		.hasSize(11);
 		// @formatter: on
 	}
-	
+
 	/**
 	 * Test for {@code Jwt} created with the minimum required fields according to the access_token and id_token specifications.
-	 * 
-	 * @see <a target="_blank" href="https://tools.ietf.org/html/draft-ietf-oauth-access-token-jwt-10">JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens</a> 
+	 *
+	 * @see <a target="_blank" href="https://tools.ietf.org/html/draft-ietf-oauth-access-token-jwt-10">JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens</a>
 	 * @see <a target="_blank" href="https://openid.net/specs/openid-connect-core-1_0.html#IDToken">OpenID Connect Core - ID Token</a>
-	 * 
+	 *
 	 * @throws Exception
 	 */
 	@Test
@@ -384,24 +394,24 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		RegisteredClient registeredClient = setupSecurityContext();
 
 		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
 		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
 
 		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
-		
+
 		retrieveAbstractOAuth2Token(tokenAuthorization);
 		Instant issuedAt = Instant.now();
-		
+
 		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plus(Duration.ofHours(1))).issuedAt(issuedAt).issuer("https://issuer1.com").subject("subject1").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
 
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
+
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
@@ -409,7 +419,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		// @formatter:off
 		assertThat(jsonResponseObject).containsOnly(entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
+				entry(OAuth2ParameterNames2.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()),
 				entry(JwtClaimNames.EXP, Integer.valueOf(toIntExact(issuedAt.plus(Duration.ofHours(1)).getEpochSecond()))),
 				entry(JwtClaimNames.IAT, Integer.valueOf(toIntExact(issuedAt.getEpochSecond()))),
 				entry(JwtClaimNames.AUD, Collections.singletonList("audience1")),
@@ -417,29 +427,29 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				entry(JwtClaimNames.SUB, "subject1"));
 		// @formatter: on
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectValidJwtWithNoExpirationDataThenValidTokenResponse() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		RegisteredClient registeredClient = setupSecurityContext();
 
 		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
 		when(this.authorizationService.findByToken("token.123", new TokenType(TokenType.ACCESS_TOKEN.getValue()))).thenReturn(tokenAuthorization);
 
 		when(tokenAuthorization.getRegisteredClientId()).thenReturn(registeredClient.getId());
-		
+
 		retrieveAbstractOAuth2Token(tokenAuthorization);
-		
+
 		Jwt jwt = Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").claim("customClaim", "customClaimValue").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
 
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
+
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		TokenIntrospectionSuccessResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
@@ -447,10 +457,10 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		// @formatter:off
 		assertThat(jsonResponseObject).containsOnly(entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
+				entry(OAuth2ParameterNames2.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
 		// @formatter: on
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectAccessTokenWithMinimumDataThenValidTokenResponse() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
@@ -469,7 +479,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		when(tokenAuthorization.getTokens()).thenReturn(tokens);
 		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token.123", null,
 				null);
-		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+		when(tokens.getToken("token.123"))
 				.thenReturn(Optional.of(accessToken));
 		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
 		when(tokens.getTokenMetadata(accessToken)).thenReturn(metadata);
@@ -488,10 +498,10 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(jsonResponseObject).containsOnly(
 				entry("active", true),
 				entry("client_id", registeredClient.getClientId()),
-				entry(OAuth2ParameterNames.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
+				entry(OAuth2ParameterNames2.TOKEN_TYPE, OAuth2AccessToken.TokenType.BEARER.getValue()));
 		// @formatter: on
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectExpiredJwtTokenThenNotValidTokenResponse() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", TokenType.ACCESS_TOKEN.getValue());
@@ -507,7 +517,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 		retrieveAbstractOAuth2Token(tokenAuthorization);
 		Instant issuedAt = Instant.now().minus(Duration.ofHours(2));
-		
+
 		Jwt jwt = createJwt(issuedAt).claim("customClaim", "customValue").build();
 		when(this.decoder.decode("token.123")).thenReturn(jwt);
 
@@ -517,13 +527,13 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 		assertNotActiveTokenResponse(response);
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectWithoutTokenTypeHintParamThenTokenSearchedWithAllSupportedTokenTypes() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", null);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		setupSecurityContext();
 
 		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
@@ -537,13 +547,13 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 
 		assertNotActiveTokenResponse(response);
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectWithAccessTokenHintThenTokenSearchedWithAccessTokenFirst() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "access_token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		setupSecurityContext();
 
 		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
@@ -554,7 +564,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
+
 		ArgumentCaptor<TokenType> tokenTypeCaptor =
 				ArgumentCaptor.forClass(TokenType.class);
 		verify(this.authorizationService).findByToken(any(String.class), tokenTypeCaptor.capture());
@@ -562,13 +572,13 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				tokenTypeCaptor.getValue();
 		assertThat(tokenType).isEqualTo(TokenType.ACCESS_TOKEN);
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectWithRefreshTokenHintThenTokenSearchedWithRefreshTokenFirst() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "refresh_token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		setupSecurityContext();
 
 		OAuth2Authorization tokenAuthorization = mock(OAuth2Authorization.class);
@@ -579,7 +589,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
+
 		ArgumentCaptor<TokenType> tokenTypeCaptor =
 				ArgumentCaptor.forClass(TokenType.class);
 		verify(this.authorizationService).findByToken(any(String.class), tokenTypeCaptor.capture());
@@ -587,13 +597,13 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 				tokenTypeCaptor.getValue();
 		assertThat(tokenType).isEqualTo(TokenType.REFRESH_TOKEN);
 	}
-	
+
 	@Test
 	public void doFilterWhenIntrospectWithUnknownTokenHintThenTokenSearchedAnyway() throws Exception {
 		MockHttpServletRequest request = createTokenIntrospectionRequest("token.123", "unknown_token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		FilterChain filterChain = mock(FilterChain.class);
-		
+
 		setupSecurityContext();
 
 		when(this.authorizationService.findByToken(any(String.class), any(TokenType.class)))
@@ -602,8 +612,8 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		this.filter.doFilter(request, response, filterChain);
 
 		verifyNoInteractions(filterChain);
-		
-		verify(this.authorizationService, times(2)).findByToken(any(String.class), any(TokenType.class));
+
+		verify(this.authorizationService, times(3)).findByToken(any(String.class), any(TokenType.class));
 	}
 
 	private void assertNotActiveTokenResponse(MockHttpServletResponse response) throws Exception {
@@ -641,7 +651,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(error.getErrorCode()).isEqualTo(errorCode);
 		assertThat(error.getDescription()).isEqualTo("OAuth 2.0 Token Introspection Parameter: " + parameterName);
 	}
-	
+
 	private static RegisteredClient setupSecurityContext() {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		Authentication clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
@@ -650,22 +660,22 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		SecurityContextHolder.setContext(securityContext);
 		return registeredClient;
 	}
-	
+
 	private AbstractOAuth2Token retrieveAbstractOAuth2Token(OAuth2Authorization tokenAuthorization) {
 		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
 		when(tokenAuthorization.getTokens()).thenReturn(tokens);
 		AbstractOAuth2Token token = mock(AbstractOAuth2Token.class);
-		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue())))).thenReturn(Optional.of(token));
+		when(tokens.getToken("token.123")).thenReturn(Optional.of(token));
 		when(token.getTokenValue()).thenReturn("token.123");
 		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
 		when(tokens.getTokenMetadata(token)).thenReturn(metadata);
 		when(metadata.isInvalidated()).thenReturn(false);
 		return token;
 	}
-	
+
 	/**
 	 * Creates an {@code OAuth2AccessToken} with all the basic fields and with validity of one hour from the issuedAt parameter.
-	 * 
+	 *
 	 * @param tokenAuthorization mock {@code OAuth2Authorization}
 	 * @return configured {@code OAuth2AccessToken}
 	 */
@@ -676,7 +686,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		Set<String> scopes = new HashSet<>(Arrays.asList("scope1", "Scope2"));
 		OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token.123", issuedAt,
 				expiresAt, scopes);
-		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+		when(tokens.getToken("token.123"))
 				.thenReturn(Optional.of(accessToken));
 		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
 		when(tokens.getTokenMetadata(accessToken)).thenReturn(metadata);
@@ -684,10 +694,10 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		when(this.decoder.decode("token.123")).thenThrow(JwtException.class);
 		return accessToken;
 	}
-	
+
 	/**
 	 * Creates an {@code OAuth2RefreshToken} with all the basic fields and with validity of one hour from the issuedAt parameter.
-	 * 
+	 *
 	 * @param tokenAuthorization mock {@code OAuth2Authorization}
 	 * @return configured {@code OAuth2RefreshToken}
 	 */
@@ -695,9 +705,9 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		OAuth2Tokens tokens = mock(OAuth2Tokens.class);
 		when(tokenAuthorization.getTokens()).thenReturn(tokens);
 		Instant expiresAt = issuedAt.plus(Duration.ofHours(1));
-		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("token.123", issuedAt,
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken2("token.123", issuedAt,
 				expiresAt);
-		when(tokens.getToken("token.123", Optional.of(new TokenType(TokenType.ACCESS_TOKEN.getValue()))))
+		when(tokens.getToken("token.123"))
 				.thenReturn(Optional.of(refreshToken));
 		OAuth2TokenMetadata metadata = mock(OAuth2TokenMetadata.class);
 		when(tokens.getTokenMetadata(refreshToken)).thenReturn(metadata);
@@ -705,15 +715,15 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		when(this.decoder.decode("token.123")).thenThrow(JwtException.class);
 		return refreshToken;
 	}
-	
+
 	/**
 	 * Creates a {@code Jwt.Builder} pre-configured with all the basic fields and with validity of one hour from the issuedAt parameter.
-	 * 
-	 * @param issuedAt {@code Instant} indicating time at which the resulting {@code Jwt} would be issued, token will expire one hour from this point 
+	 *
+	 * @param issuedAt {@code Instant} indicating time at which the resulting {@code Jwt} would be issued, token will expire one hour from this point
 	 * @return a pre-configured {@code Jwt.Builder}
 	 */
 	private static Jwt.Builder createJwt(Instant issuedAt) {
-		return Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plus(Duration.ofHours(1))).issuedAt(issuedAt).notBefore(issuedAt).issuer("https://issuer1.com").jti("jti1").subject("subject1").claim(OAuth2ParameterNames.SCOPE, new HashSet<>(Arrays.asList("scope1", "Scope2")));
+		return Jwt.withTokenValue("token.123").header("customHeader", "customHeaderValue").audience(Collections.singletonList("audience1")).expiresAt(issuedAt.plus(Duration.ofHours(1))).issuedAt(issuedAt).notBefore(issuedAt).issuer("https://issuer1.com").jti("jti1").subject("subject1").claim(OAuth2ParameterNames2.SCOPE, new HashSet<>(Arrays.asList("scope1", "Scope2")));
 	}
 
 	private static MockHttpServletRequest createTokenIntrospectionRequest(String token, String tokenTypeHint) {
@@ -721,8 +731,9 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		MockHttpServletRequest request = new MockHttpServletRequest("POST", requestUri);
 		request.setServletPath(requestUri);
 
-		request.addParameter(OAuth2ParameterNames.TOKEN, token);
-		request.addParameter(OAuth2ParameterNames.TOKEN_TYPE_HINT, tokenTypeHint);
+		request.addParameter(OAuth2ParameterNames2.TOKEN, token);
+		request.addParameter(OAuth2ParameterNames2.TOKEN_TYPE_HINT, tokenTypeHint);
 		return request;
-	}
+
+}
 }

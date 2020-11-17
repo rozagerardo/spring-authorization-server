@@ -16,8 +16,6 @@
 
 package org.springframework.security.oauth2.server.authorization.token;
 
-import java.time.Instant;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.security.oauth2.core.AbstractOAuth2Token;
@@ -27,10 +25,12 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.util.Assert;
 
+import java.time.Instant;
+
 /**
  * An implementation of {@link OAuth2TokenValidator} to verify a token is not
  * expired.
- * 
+ *
  * @author Gerardo Roza
  * @since 0.0.4
  */
@@ -42,11 +42,9 @@ public class TokenExpirationValidator implements OAuth2TokenValidator<AbstractOA
 	public OAuth2TokenValidatorResult validate(AbstractOAuth2Token token) {
 		Assert.notNull(token, "token cannot be null");
 		Instant expiry = token.getExpiresAt();
-		if (expiry != null) {
-			if (Instant.now().isAfter(expiry)) {
-				OAuth2Error oAuth2Error = createOAuth2Error(String.format("Token expired at %s", expiry));
-				return OAuth2TokenValidatorResult.failure(oAuth2Error);
-			}
+		if (expiry != null && Instant.now().isAfter(expiry)) {
+			OAuth2Error oAuth2Error = createOAuth2Error(String.format("Token expired at %s", expiry));
+			return OAuth2TokenValidatorResult.failure(oAuth2Error);
 		}
 		return OAuth2TokenValidatorResult.success();
 	}

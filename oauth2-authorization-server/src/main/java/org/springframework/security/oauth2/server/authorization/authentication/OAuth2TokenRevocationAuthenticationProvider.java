@@ -15,6 +15,8 @@
  */
 package org.springframework.security.oauth2.server.authorization.authentication;
 
+import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthenticationProviderUtils.getAuthenticatedClientElseThrowInvalidClient;
+
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -29,8 +31,6 @@ import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-
-import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthenticationProviderUtils.getAuthenticatedClientElseThrowInvalidClient;
 
 /**
  * An {@link AuthenticationProvider} implementation for OAuth 2.0 Token Revocation.
@@ -87,7 +87,7 @@ public class OAuth2TokenRevocationAuthenticationProvider implements Authenticati
 			throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT));
 		}
 
-		AbstractOAuth2Token token = authorization.getTokens().getToken(tokenRevocationAuthentication.getToken());
+		AbstractOAuth2Token token = authorization.getTokens().getToken(tokenRevocationAuthentication.getToken()).orElse(null);
 		authorization = OAuth2AuthenticationProviderUtils.invalidate(authorization, token);
 		this.authorizationService.save(authorization);
 
