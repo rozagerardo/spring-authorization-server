@@ -20,7 +20,9 @@ import org.springframework.security.oauth2.core.AbstractOAuth2Token;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken2;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
+import org.springframework.security.oauth2.server.authorization.TokenType;
 import org.springframework.security.oauth2.server.authorization.Version;
 import org.springframework.util.Assert;
 
@@ -28,11 +30,13 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A container for OAuth 2.0 Tokens.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  * @since 0.0.3
  * @see OAuth2Authorization
  * @see OAuth2TokenMetadata
@@ -87,19 +91,27 @@ public class OAuth2Tokens implements Serializable {
 	/**
 	 * Returns the token specified by {@code token}.
 	 *
-	 * @param token the token
-	 * @param <T> the type of the token
-	 * @return the token, or {@code null} if not available
+	 * @param token the token value
+	 * @return an optional wrapped {@code AbstractOAuth2Token}
 	 */
-	@Nullable
-	@SuppressWarnings("unchecked")
-	public <T extends AbstractOAuth2Token> T getToken(String token) {
+	public Optional<AbstractOAuth2Token> getToken(String token) {
 		Assert.hasText(token, "token cannot be empty");
-		OAuth2TokenHolder tokenHolder = this.tokens.values().stream()
+		return this.tokens.values().stream()
 				.filter(holder -> holder.getToken().getTokenValue().equals(token))
-				.findFirst()
-				.orElse(null);
-		return tokenHolder != null ? (T) tokenHolder.getToken() : null;
+				.map(OAuth2TokenHolder::getToken)
+				.findFirst();
+	}
+
+	/**
+	 * Returns the token specified by {@code TokenType}.
+	 *
+	 * @param tokenType the token type
+	 * @return an optional wrapped {@code AbstractOAuth2Token}
+	 */
+	public Optional<AbstractOAuth2Token> getToken(TokenType tokenType) {
+		Assert.notNull(tokenType, "tokenType cannot be null");
+		return TokenTypeMapping.get(tokenType).map(tType -> this.tokens.get(tType.getTokenTypeClass()))
+				.map(OAuth2TokenHolder::getToken);
 	}
 
 	/**
@@ -288,5 +300,40 @@ public class OAuth2Tokens implements Serializable {
 		public int hashCode() {
 			return Objects.hash(this.token, this.tokenMetadata);
 		}
+	}
+
+	/**
+	 * Enum to map a {@code TokenType} to a corresponding class extending {@code AbstractOAuth2Token}.
+	 *
+	 * @author Gerardo Roza
+	 *
+	 */
+	private enum TokenTypeMapping {
+		ACCESS_TOKEN(TokenType.ACCESS_TOKEN, OAuth2AccessToken.class),
+		REFRESH_TOKEN(TokenType.REFRESH_TOKEN, OAuth2RefreshToken.class),
+		ID_TOKEN(TokenType.ID_TOKEN, OidcIdToken.class),
+		AUTHORIZATION_CODE(TokenType.AUTHORIZATION_CODE, OAuth2AuthorizationCode.class);
+
+		private final TokenType tokenType;
+		private final Class<? extends AbstractOAuth2Token> tokenTypeClass;
+
+		TokenTypeMapping(TokenType tokenType, Class<? extends AbstractOAuth2Token> tokenTypeClass) {
+			this.tokenType = tokenType;
+			this.tokenTypeClass = tokenTypeClass;
+		}
+
+		static public Optional<TokenTypeMapping> get(TokenType tokenType) {
+			Assert.notNull(tokenType, "tokentype code cannot be null");
+			for (TokenTypeMapping candidate : values()) {
+				if (candidate.tokenType.equals(tokenType))
+					return Optional.of(candidate);
+			}
+			return Optional.empty();
+		}
+
+		public Class<? extends AbstractOAuth2Token> getTokenTypeClass() {
+			return tokenTypeClass;
+		}
+
 	}
 }

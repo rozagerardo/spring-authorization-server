@@ -20,6 +20,7 @@ import org.junit.Test;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.server.authorization.TokenType;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests for {@link OAuth2Tokens}.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  */
 public class OAuth2TokensTests {
 	private OAuth2AccessToken accessToken;
@@ -106,6 +108,12 @@ public class OAuth2TokensTests {
 		assertThatThrownBy(() -> OAuth2Tokens.from(null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("tokens cannot be null");
+	}
+
+	@Test
+	public void getTokenWhenUsingNullTokenTypeThenThrowIllegalArgumentException() {
+		assertThatThrownBy(() -> OAuth2Tokens.builder().build().getToken((String) null))
+				.isInstanceOf(IllegalArgumentException.class).hasMessage("token cannot be empty");
 	}
 
 	@Test
@@ -191,5 +199,25 @@ public class OAuth2TokensTests {
 				this.accessToken.getExpiresAt(),
 				this.accessToken.getScopes());
 		assertThat(tokens.getTokenMetadata(otherAccessToken)).isNull();
+	}
+
+	@Test
+	public void getTokenWhenUsingTokenValueAndTokenTypeThenTokensRetrieved() {
+		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken).refreshToken(this.refreshToken)
+				.token(this.idToken).build();
+		assertThat(tokens.getToken("access-token")).isPresent().contains(this.accessToken);
+		assertThat(tokens.getToken("refresh-token")).isPresent().contains(this.refreshToken);
+		assertThat(tokens.getToken("id-token")).isPresent().contains(this.idToken);
+	}
+
+	@Test
+	public void getTokenWhenUsingTokenTypeThenTokensRetrieved() {
+		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken).refreshToken(this.refreshToken)
+				.token(this.idToken).build();
+
+		assertThat(tokens.getToken(TokenType.ACCESS_TOKEN)).isPresent().contains(this.accessToken);
+		assertThat(tokens.getToken(TokenType.REFRESH_TOKEN)).isPresent().contains(this.refreshToken);
+		assertThat(tokens.getToken(TokenType.ID_TOKEN)).isPresent().contains(this.idToken);
+		assertThat(tokens.getToken(new TokenType("unknown_token_type"))).isEmpty();
 	}
 }

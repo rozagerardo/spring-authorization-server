@@ -19,6 +19,12 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken2;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.oauth2.jose.JoseHeader;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.TestRegisteredClients;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2AuthorizationCode;
@@ -28,10 +34,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Joe Grandja
  * @author Daniel Garnier-Moiroux
+ * @author Gerardo Roza
  */
 public class TestOAuth2Authorizations {
 
@@ -45,10 +53,29 @@ public class TestOAuth2Authorizations {
 
 	public static OAuth2Authorization.Builder authorization(RegisteredClient registeredClient,
 			Map<String, Object> authorizationRequestAdditionalParameters) {
+		return authorization(registeredClient, authorizationRequestAdditionalParameters, null);
+	}
+
+	public static OAuth2Authorization.Builder authorization(RegisteredClient registeredClient,
+			Map<String, Object> authorizationRequestAdditionalParameters, JwtEncoder jwtEncoder) {
 		OAuth2AuthorizationCode authorizationCode = new OAuth2AuthorizationCode(
 				"code", Instant.now(), Instant.now().plusSeconds(120));
+		String accessTokenValue = "access-token";
+		Instant accessTokenIssuedAt = Instant.now();
+		Instant accessTokenExpiresAt = accessTokenIssuedAt.plusSeconds(300);
+		if (jwtEncoder != null) {
+			Jwt jwt = issueJwtAccessToken(jwtEncoder, "user-1", registeredClient.getClientId(),
+					registeredClient.getScopes());
+			accessTokenValue = jwt.getTokenValue();
+			accessTokenIssuedAt = jwt.getIssuedAt();
+			accessTokenExpiresAt = jwt.getExpiresAt();
+		}
 		OAuth2AccessToken accessToken = new OAuth2AccessToken(
-				OAuth2AccessToken.TokenType.BEARER, "access-token", Instant.now(), Instant.now().plusSeconds(300));
+				OAuth2AccessToken.TokenType.BEARER,
+				accessTokenValue,
+				accessTokenIssuedAt,
+				accessTokenExpiresAt,
+				registeredClient.getScopes());
 		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken2(
 				"refresh-token", Instant.now(), Instant.now().plus(1, ChronoUnit.HOURS));
 		OAuth2AuthorizationRequest authorizationRequest = OAuth2AuthorizationRequest.authorizationCode()
@@ -64,5 +91,20 @@ public class TestOAuth2Authorizations {
 				.tokens(OAuth2Tokens.builder().token(authorizationCode).accessToken(accessToken).refreshToken(refreshToken).build())
 				.attribute(OAuth2AuthorizationAttributeNames.AUTHORIZATION_REQUEST, authorizationRequest)
 				.attribute(OAuth2AuthorizationAttributeNames.AUTHORIZED_SCOPES, authorizationRequest.getScopes());
+	}
+
+	private static Jwt issueJwtAccessToken(JwtEncoder jwtEncoder, String subject, String audience, Set<String> scopes) {
+		JoseHeader joseHeader = JoseHeader.withAlgorithm(SignatureAlgorithm.RS256).build();
+
+		String issuer = "https://oauth2.provider.com";
+
+		Instant issuedAt = Instant.now();
+		Instant expiresAt = issuedAt.plus(1, ChronoUnit.HOURS);
+
+		JwtClaimsSet jwtClaimsSet = JwtClaimsSet.withClaims().issuer(issuer).subject(subject)
+				.audience(Collections.singletonList(audience)).issuedAt(issuedAt).expiresAt(expiresAt)
+				.notBefore(issuedAt).claim(OAuth2ParameterNames.SCOPE, scopes).build();
+
+		return jwtEncoder.encode(joseHeader, jwtClaimsSet);
 	}
 }
