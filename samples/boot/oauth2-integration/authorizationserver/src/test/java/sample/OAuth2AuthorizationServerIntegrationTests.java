@@ -50,7 +50,8 @@ public class OAuth2AuthorizationServerIntegrationTests {
 	void givenValidToken_whenIntrospectToken_thenOkResponseWithPopulatedFields(@Autowired MockMvc mvc) throws Exception {
 		MvcResult result = obtainAccessTokenResponse(mvc);
 
-		String token = JsonPath.read(result.getResponse().getContentAsString(), "$.access_token");
+		String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.access_token");
+		String refreshToken = JsonPath.read(result.getResponse().getContentAsString(), "$.refresh_token");
 
 		String urlPatternRegex = "^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
 
@@ -58,7 +59,7 @@ public class OAuth2AuthorizationServerIntegrationTests {
 		mvc.perform(post(DEFAULT_TOKEN_INTROSPECTION_ENDPOINT)
 				.with(anonymous())
 				.with(httpBasic(CLIENT_ID, CLIENT_SECRET))
-				.param("token", token)
+				.param("token", accessToken)
 				.param("token_type_hint", "access_token"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.active", is(true)))
@@ -70,6 +71,19 @@ public class OAuth2AuthorizationServerIntegrationTests {
 			.andExpect(jsonPath("$.client_id").isString())
 			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
 			.andExpect(jsonPath("$.nbf", lessThan(Instant.now().getEpochSecond()),Long.class))
+			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class));
+		// @formatter:on
+
+		// @formatter:off
+		mvc.perform(post(DEFAULT_TOKEN_INTROSPECTION_ENDPOINT)
+				.with(anonymous())
+				.with(httpBasic(CLIENT_ID, CLIENT_SECRET))
+				.param("token", refreshToken)
+				.param("token_type_hint", "access_token"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.active", is(true)))
+			.andExpect(jsonPath("$.client_id").isString())
+			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
 			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class));
 		// @formatter:on
 	}

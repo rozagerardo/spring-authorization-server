@@ -225,7 +225,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 	private Optional<OAuth2Authorization> findAuthorizationByToken(String token, Optional<TokenType> tokenTypeHint) {
 		List<TokenType> supportedTokenTypes = new ArrayList<TokenType>(
-				Arrays.asList(TokenType.ACCESS_TOKEN, TokenType.REFRESH_TOKEN));
+				Arrays.asList(TokenType.ACCESS_TOKEN, TokenType.REFRESH_TOKEN, TokenType.ID_TOKEN));
 		tokenTypeHint.ifPresent(tType -> {
 			if (supportedTokenTypes.remove(tType))
 				supportedTokenTypes.add(0, tType);
