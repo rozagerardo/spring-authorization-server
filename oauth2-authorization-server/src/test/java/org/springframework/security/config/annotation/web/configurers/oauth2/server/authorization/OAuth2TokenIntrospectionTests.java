@@ -119,8 +119,8 @@ public class OAuth2TokenIntrospectionTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.active", is(true)))
 				.andExpect(jsonPath("$.client_id", is("client-1")))
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()),Long.class));
+				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
+				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
  		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
@@ -148,10 +148,10 @@ public class OAuth2TokenIntrospectionTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.active", is(true)))
 				.andExpect(jsonPath("$.client_id", is("client-1")))
-				.andExpect(jsonPath("$.scope", allOf(containsString("openid"),containsString("profile"), containsString("email"))))
+				.andExpect(jsonPath("$.scope", allOf(containsString("openid"), containsString("profile"), containsString("email"))))
 				.andExpect(jsonPath("$.token_type", is(AccessTokenType.BEARER.getValue())))
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()),Long.class));
+				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
+				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
  		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
@@ -181,15 +181,15 @@ public class OAuth2TokenIntrospectionTests {
 						.with(httpBasic(registeredClient.getClientId(), registeredClient.getClientSecret())))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.active", is(true)))
-				.andExpect(jsonPath("$.scope", allOf(containsString("openid"),containsString("profile"), containsString("email"))))
+				.andExpect(jsonPath("$.scope", allOf(containsString("openid"), containsString("profile"), containsString("email"))))
 				.andExpect(jsonPath("$.sub", is("user-1")))
 				.andExpect(jsonPath("$.aud", contains("client-1")))
 				.andExpect(jsonPath("$.iss", matchesPattern(URL_PATTERN_REGEX)))
 				.andExpect(jsonPath("$.token_type", is(AccessTokenType.BEARER.getValue())))
 				.andExpect(jsonPath("$.client_id").isString())
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.nbf", lessThanOrEqualTo(Instant.now().getEpochSecond()),Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()),Long.class));
+				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
+				.andExpect(jsonPath("$.nbf", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
+				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
  		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));

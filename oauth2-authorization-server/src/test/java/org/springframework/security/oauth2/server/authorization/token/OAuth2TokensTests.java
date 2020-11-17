@@ -29,7 +29,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Optional;
 
 /**
  * Tests for {@link OAuth2Tokens}.
@@ -176,21 +175,9 @@ public class OAuth2TokensTests {
 	public void getTokenWhenUsingTokenValueAndTokenTypeThenTokensRetrieved() {
 		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken).refreshToken(this.refreshToken)
 				.token(this.idToken).build();
-		assertThat(tokens.getToken("access-token", Optional.of(TokenType.ACCESS_TOKEN))).isPresent()
-				.contains(this.accessToken);
-		assertThat(tokens.getToken("refresh-token", Optional.of(TokenType.REFRESH_TOKEN))).isPresent()
-				.contains(this.refreshToken);
-		assertThat(tokens.getToken("id-token", Optional.of(TokenType.ID_TOKEN))).isPresent().contains(this.idToken);
-
-		assertThat(tokens.getToken("access-token", Optional.of(TokenType.REFRESH_TOKEN))).isEmpty();
-		assertThat(tokens.getToken("refresh-token", Optional.of(TokenType.ID_TOKEN))).isEmpty();
-		assertThat(tokens.getToken("id-token", Optional.of(TokenType.ACCESS_TOKEN))).isEmpty();
-		assertThat(tokens.getToken("unknown-token", Optional.of(TokenType.ACCESS_TOKEN))).isEmpty();
-
-		assertThat(tokens.getToken("access-token", Optional.empty())).isPresent().contains(this.accessToken);
-		assertThat(tokens.getToken("refresh-token", Optional.empty())).isPresent().contains(this.refreshToken);
-		assertThat(tokens.getToken("id-token", Optional.empty())).isPresent().contains(this.idToken);
-		assertThat(tokens.getToken("unknown-token", Optional.empty())).isEmpty();
+		assertThat(tokens.getToken("access-token")).isPresent().contains(this.accessToken);
+		assertThat(tokens.getToken("refresh-token")).isPresent().contains(this.refreshToken);
+		assertThat(tokens.getToken("id-token")).isPresent().contains(this.idToken);
 	}
 
 	@Test

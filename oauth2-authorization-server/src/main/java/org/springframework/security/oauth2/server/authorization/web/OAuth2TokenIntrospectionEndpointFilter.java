@@ -117,8 +117,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	/**
 	 * Constructs an {@code OAuth2TokenIntrospectionEndpointFilter} using the provided parameters.
 	 *
-	 * @param authenticationManager the authentication manager
 	 * @param authorizationService  the authorization service
+	 * @param jwtDecoders a collection of available {@code JwtDecoder} instances
 	 */
 	public OAuth2TokenIntrospectionEndpointFilter(OAuth2AuthorizationService authorizationService,
 			Collection<JwtDecoder> jwtDecoders) {
@@ -128,8 +128,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	/**
 	 * Constructs an {@code OAuth2TokenIntrospectionEndpointFilter} using the provided parameters.
 	 *
-	 * @param authenticationManager         the authentication manager
 	 * @param authorizationService          the authorization service
+	 * @param jwtDecoders a collection of available {@code JwtDecoder} instances
 	 * @param tokenIntrospectionEndpointUri the endpoint {@code URI} for token introspection requests
 	 */
 	public OAuth2TokenIntrospectionEndpointFilter(OAuth2AuthorizationService authorizationService,
@@ -168,52 +168,56 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 			}
 
 			// token_type_hint (OPTIONAL)
-			Optional<TokenType> tokenTypeHint = Optional.ofNullable(parameters.getFirst(OAuth2ParameterNames2.TOKEN_TYPE_HINT))
-					.map(TokenType::new);
+			Optional<TokenType> tokenTypeHint = Optional
+					.ofNullable(parameters.getFirst(OAuth2ParameterNames2.TOKEN_TYPE_HINT)).map(TokenType::new);
 			if (tokenTypeHint.isPresent() && parameters.get(OAuth2ParameterNames2.TOKEN_TYPE_HINT).size() != 1) {
 				throwError(OAuth2ErrorCodes.INVALID_REQUEST, OAuth2ParameterNames2.TOKEN_TYPE_HINT);
 			}
+			TokenIntrospectionSuccessResponse tokenIntrospectionResponse = generateTokenIntrospectionResponse(principal,
+					token, tokenTypeHint);
 
-			TokenIntrospectionSuccessResponse tokenIntrospectionResponse;
-
-			try {
-				// get client from token
-				OAuth2Authorization authorization = findAuthorizationByToken(token, tokenTypeHint)
-						.orElseThrow(() -> new InvalidTokenException("Token not found"));
-
-				// check if token corresponds to authorized Client
-				OAuth2ClientAuthenticationToken clientAuthentication = principal instanceof OAuth2ClientAuthenticationToken
-						? (OAuth2ClientAuthenticationToken) principal
-						: null;
-				if (clientAuthentication == null
-						|| !clientAuthentication.getRegisteredClient().getId().equals(authorization.getRegisteredClientId())) {
-					throw new InvalidTokenException("Token does not correspond to authenticated client");
-				}
-
-				// we've obtained the authorization from the token, we shouldn't expect an empty response here
-				AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token).get();
-				if (authorization.getTokens().getTokenMetadata(oauthToken).isInvalidated()) {
-					throw new InvalidTokenException("Token has been invalidated");
-				}
-
-				oauthToken = parseJwt(oauthToken);
-
-				validateToken(oauthToken);
-
-				TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(true);
-				builder.clientID(new ClientID(clientAuthentication.getRegisteredClient().getClientId()));
-				Optional.ofNullable(oauthToken.getIssuedAt()).map(Date::from).ifPresent(builder::issueTime);
-				Optional.ofNullable(oauthToken.getExpiresAt()).map(Date::from).ifPresent(builder::expirationTime);
-				TokenToIntrospectionResponseFieldsMapper.extractFromToken(oauthToken, builder);
-				tokenIntrospectionResponse = builder.build();
-			} catch (InvalidTokenException exception) {
-				TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(false);
-				tokenIntrospectionResponse = builder.build();
-			}
 			this.sendTokenIntrospectionResponse(response, tokenIntrospectionResponse);
 		} catch (OAuth2AuthenticationException ex) {
 			SecurityContextHolder.clearContext();
 			sendErrorResponse(response, ex.getError());
+		}
+	}
+
+	private TokenIntrospectionSuccessResponse generateTokenIntrospectionResponse(Authentication principal, String token,
+			Optional<TokenType> tokenTypeHint) {
+		try {
+			// get client from token
+			OAuth2Authorization authorization = findAuthorizationByToken(token, tokenTypeHint)
+					.orElseThrow(() -> new InvalidTokenException("Token not found"));
+
+			// check if token corresponds to authorized Client
+			OAuth2ClientAuthenticationToken clientAuthentication = principal instanceof OAuth2ClientAuthenticationToken
+					? (OAuth2ClientAuthenticationToken) principal
+					: null;
+			if (clientAuthentication == null || !clientAuthentication.getRegisteredClient().getId()
+					.equals(authorization.getRegisteredClientId())) {
+				throw new InvalidTokenException("Token does not correspond to authenticated client");
+			}
+
+			// we obtained the authorization from the token, no need to validate Optional here
+			AbstractOAuth2Token oauthToken = authorization.getTokens().getToken(token).get();
+			if (authorization.getTokens().getTokenMetadata(oauthToken).isInvalidated()) {
+				throw new InvalidTokenException("Token has been invalidated");
+			}
+
+			oauthToken = parseJwt(oauthToken);
+
+			validateToken(oauthToken);
+
+			TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(true);
+			builder.clientID(new ClientID(clientAuthentication.getRegisteredClient().getClientId()));
+			Optional.ofNullable(oauthToken.getIssuedAt()).map(Date::from).ifPresent(builder::issueTime);
+			Optional.ofNullable(oauthToken.getExpiresAt()).map(Date::from).ifPresent(builder::expirationTime);
+			TokenToIntrospectionResponseFieldsMapper.extractFromToken(oauthToken, builder);
+			return builder.build();
+		} catch (InvalidTokenException exception) {
+			TokenIntrospectionSuccessResponse.Builder builder = new TokenIntrospectionSuccessResponse.Builder(false);
+			return builder.build();
 		}
 	}
 
@@ -224,7 +228,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	}
 
 	private Optional<OAuth2Authorization> findAuthorizationByToken(String token, Optional<TokenType> tokenTypeHint) {
-		List<TokenType> supportedTokenTypes = new ArrayList<TokenType>(
+		List<TokenType> supportedTokenTypes = new ArrayList<>(
 				Arrays.asList(TokenType.ACCESS_TOKEN, TokenType.REFRESH_TOKEN, TokenType.ID_TOKEN));
 		tokenTypeHint.ifPresent(tType -> {
 			if (supportedTokenTypes.remove(tType))
@@ -258,7 +262,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 	@SuppressWarnings("unchecked")
 	private <T extends AbstractOAuth2Token> void validateToken(T token) {
-		OAuth2TokenValidator<T> tokenValidator = (token instanceof Jwt) ? (OAuth2TokenValidator<T>) new JwtTimestampValidator()
+		OAuth2TokenValidator<T> tokenValidator = (token instanceof Jwt)
+				? (OAuth2TokenValidator<T>) new JwtTimestampValidator()
 				: (OAuth2TokenValidator<T>) new TokenExpirationValidator();
 		OAuth2TokenValidatorResult result = tokenValidator.validate(token);
 		if (result.hasErrors()) {
@@ -311,8 +316,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 *
 		 * @return This builder.
 		 */
-		private static TokenIntrospectionSuccessResponse.Builder extractFromOAuth2AccessToken(final OAuth2AccessToken accessToken,
-				TokenIntrospectionSuccessResponse.Builder builder) {
+		private static TokenIntrospectionSuccessResponse.Builder extractFromOAuth2AccessToken(
+				final OAuth2AccessToken accessToken, TokenIntrospectionSuccessResponse.Builder builder) {
 			Collection<String> scopes = accessToken.getScopes();
 			if (!scopes.isEmpty()) {
 				builder.scope(Scope.parse(String.join(" ", scopes)));
@@ -333,7 +338,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 			builder.tokenType(AccessTokenType.BEARER);
 			Optional.ofNullable(jwt.getSubject()).map(Subject::new).ifPresent(builder::subject);
 			Optional.ofNullable(jwt.getId()).map(JWTID::new).ifPresent(builder::jwtID);
-			Optional.ofNullable(jwt.getAudience()).map(audienceList -> audienceList.stream().map(Audience::new).collect(toList()))
+			Optional.ofNullable(jwt.getAudience())
+					.map(audienceList -> audienceList.stream().map(Audience::new).collect(toList()))
 					.ifPresent(builder::audience);
 			Optional.ofNullable(jwt.getNotBefore()).map(Date::from).ifPresent(builder::notBeforeTime);
 			Optional.ofNullable(jwt.getClaimAsStringList(OAuth2ParameterNames2.SCOPE))
@@ -359,7 +365,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 */
 		public static TokenIntrospectionSuccessResponse.Builder extractFromToken(final AbstractOAuth2Token token,
 				TokenIntrospectionSuccessResponse.Builder builder) {
-			Optional.ofNullable(supportedTokens.get(token.getClass())).ifPresent(consumer -> consumer.accept(token, builder));
+			Optional.ofNullable(supportedTokens.get(token.getClass()))
+					.ifPresent(consumer -> consumer.accept(token, builder));
 			return builder;
 		}
 	}
@@ -376,7 +383,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 *
 		 * @param description the description
 		 */
-		public InvalidTokenException(String description) {
+		InvalidTokenException(String description) {
 			this(description, null);
 		}
 
@@ -386,7 +393,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 		 * @param description the description
 		 * @param cause       the causing exception
 		 */
-		public InvalidTokenException(String description, Throwable cause) {
+		InvalidTokenException(String description, Throwable cause) {
 			super(description, cause);
 		}
 	}
@@ -412,8 +419,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 		@Override
 		@SuppressWarnings("unchecked")
-		protected TokenIntrospectionSuccessResponse readInternal(Class<? extends TokenIntrospectionSuccessResponse> clazz,
-				HttpInputMessage inputMessage) throws HttpMessageNotReadableException {
+		protected TokenIntrospectionSuccessResponse readInternal(
+				Class<? extends TokenIntrospectionSuccessResponse> clazz, HttpInputMessage inputMessage) {
 			try {
 				Map<String, Object> tokenIntrospectionResponseParameters = (Map<String, Object>) this.jsonMessageConverter
 						.read(STRING_OBJECT_MAP.getType(), null, inputMessage);
@@ -421,13 +428,14 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 				return TokenIntrospectionSuccessResponse.parse(jsonObject);
 			} catch (Exception ex) {
 				throw new HttpMessageNotReadableException(
-						"An error occurred reading the Token Introspection Response: " + ex.getMessage(), ex, inputMessage);
+						"An error occurred reading the Token Introspection Response: " + ex.getMessage(), ex,
+						inputMessage);
 			}
 		}
 
 		@Override
 		protected void writeInternal(TokenIntrospectionSuccessResponse tokenIntrospectionResponse,
-				HttpOutputMessage outputMessage) throws HttpMessageNotWritableException {
+				HttpOutputMessage outputMessage) {
 			try {
 
 				Map<String, Object> tokenIntrospectionResponseParameters = tokenIntrospectionResponse.toJSONObject();

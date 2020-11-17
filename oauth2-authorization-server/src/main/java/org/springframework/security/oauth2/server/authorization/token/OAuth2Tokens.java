@@ -92,8 +92,7 @@ public class OAuth2Tokens implements Serializable {
 	 * Returns the token specified by {@code TokenType}.
 	 *
 	 * @param tokenType the token type
-	 * @param <T>       the type of the token
-	 * @return the token, or {@code null} if not available
+	 * @return an optional wrapped {@code AbstractOAuth2Token}
 	 */
 	public Optional<AbstractOAuth2Token> getToken(TokenType tokenType) {
 		Assert.notNull(tokenType, "tokenType cannot be null");
