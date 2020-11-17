@@ -90,9 +90,9 @@ public class OAuth2AuthorizationServerIntegrationTests {
 			.andExpect(jsonPath("$.iss", matchesPattern(urlPatternRegex)))
 			.andExpect(jsonPath("$.token_type", is("Bearer")))
 			.andExpect(jsonPath("$.client_id").isString())
-			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
-			.andExpect(jsonPath("$.nbf", lessThan(Instant.now().getEpochSecond()),Long.class))
-			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class));
+			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()), Long.class))
+			.andExpect(jsonPath("$.nbf", lessThan(Instant.now().getEpochSecond()), Long.class))
+			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()), Long.class));
 		// @formatter:on
 
 		// @formatter:off
@@ -104,8 +104,8 @@ public class OAuth2AuthorizationServerIntegrationTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.active", is(true)))
 			.andExpect(jsonPath("$.client_id").isString())
-			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()),Long.class))
-			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()),Long.class));
+			.andExpect(jsonPath("$.iat", lessThan(Instant.now().getEpochSecond()), Long.class))
+			.andExpect(jsonPath("$.exp", greaterThan(Instant.now().getEpochSecond()), Long.class));
 		// @formatter:on
 	}
 

@@ -17,26 +17,14 @@ package org.springframework.security.oauth2.server.authorization.web;
 
 import static java.util.stream.Collectors.toList;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import com.nimbusds.oauth2.sdk.Scope;
+import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
+import com.nimbusds.oauth2.sdk.id.Audience;
+import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.oauth2.sdk.id.JWTID;
+import com.nimbusds.oauth2.sdk.id.Subject;
+import com.nimbusds.oauth2.sdk.token.AccessTokenType;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -82,14 +70,26 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.nimbusds.oauth2.sdk.Scope;
-import com.nimbusds.oauth2.sdk.TokenIntrospectionSuccessResponse;
-import com.nimbusds.oauth2.sdk.id.Audience;
-import com.nimbusds.oauth2.sdk.id.ClientID;
-import com.nimbusds.oauth2.sdk.id.Issuer;
-import com.nimbusds.oauth2.sdk.id.JWTID;
-import com.nimbusds.oauth2.sdk.id.Subject;
-import com.nimbusds.oauth2.sdk.token.AccessTokenType;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import net.minidev.json.JSONObject;
 
@@ -280,14 +280,13 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 	}
 
 	/**
-	 * Mapper that helps populate {@code TokenIntrospectionSuccessResponse} fields from different{@code AbstractOAuth2Token}
+	 * Mapper that helps populate {@code TokenIntrospectionSuccessResponse} fields from different {@code AbstractOAuth2Token}
 	 * implementations.
-	 * 
+	 *
 	 * @see OAuth2AccessToken
 	 * @see Jwt
-	 * 
-	 * @author Gerardo Roza
 	 *
+	 * @author Gerardo Roza
 	 */
 	private static final class TokenToIntrospectionResponseFieldsMapper {
 
@@ -367,9 +366,8 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 	/**
 	 * Exception that can be triggered when a token is found invalid.
-	 * 
-	 * @author Gerardo Roza
 	 *
+	 * @author Gerardo Roza
 	 */
 	private static class InvalidTokenException extends RuntimeException {
 
@@ -384,7 +382,7 @@ public class OAuth2TokenIntrospectionEndpointFilter extends OncePerRequestFilter
 
 		/**
 		 * Construct an instance of {@link InvalidTokenException} given the provided description and cause
-		 * 
+		 *
 		 * @param description the description
 		 * @param cause       the causing exception
 		 */
