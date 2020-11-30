@@ -37,6 +37,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenIntrospectionAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenRevocationAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
@@ -205,6 +206,11 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 				new OAuth2TokenRevocationAuthenticationProvider(
 						getAuthorizationService(builder));
 		builder.authenticationProvider(postProcess(tokenRevocationAuthenticationProvider));
+		
+		OAuth2TokenIntrospectionAuthenticationProvider tokenIntrospectionAuthenticationProvider =
+				new OAuth2TokenIntrospectionAuthenticationProvider(
+						getAuthorizationService(builder), getJwtDecoders(builder));
+		builder.authenticationProvider(postProcess(tokenIntrospectionAuthenticationProvider));
 
 		ExceptionHandlingConfigurer<B> exceptionHandling = builder.getConfigurer(ExceptionHandlingConfigurer.class);
 		if (exceptionHandling != null) {
@@ -264,26 +270,17 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 						providerSettings.tokenEndpoint());
 		builder.addFilterAfter(postProcess(tokenEndpointFilter), FilterSecurityInterceptor.class);
 
-		Collection<JwtDecoder> jwtDecoders = new ArrayList<>();
-		for (CryptoKey<? extends Key> cryptoKey : getKeySource(builder).getKeys()) {
-			if (AsymmetricKey.class.isAssignableFrom(cryptoKey.getClass())
-					&& RSAPublicKey.class.isAssignableFrom(((AsymmetricKey) cryptoKey).getPublicKey().getClass())) {
-				jwtDecoders.add(NimbusJwtDecoder
-						.withPublicKey((RSAPublicKey) ((AsymmetricKey) cryptoKey).getPublicKey()).build());
-			} else if (SymmetricKey.class.isAssignableFrom(cryptoKey.getClass())) {
-				jwtDecoders.add(NimbusJwtDecoder.withSecretKey(((SymmetricKey) cryptoKey).getKey()).build());
-			}
-		}
-
-		OAuth2TokenIntrospectionEndpointFilter tokenIntrospectionEndpointFilter = new OAuth2TokenIntrospectionEndpointFilter(
-				getAuthorizationService(builder), jwtDecoders);
-		builder.addFilterAfter(postProcess(tokenIntrospectionEndpointFilter), FilterSecurityInterceptor.class);
-
 		OAuth2TokenRevocationEndpointFilter tokenRevocationEndpointFilter =
 				new OAuth2TokenRevocationEndpointFilter(
 						authenticationManager,
 						providerSettings.tokenRevocationEndpoint());
 		builder.addFilterAfter(postProcess(tokenRevocationEndpointFilter), OAuth2TokenEndpointFilter.class);
+		
+		OAuth2TokenIntrospectionEndpointFilter tokenIntrospectionEndpointFilter =
+				new OAuth2TokenIntrospectionEndpointFilter(
+						authenticationManager,
+						providerSettings.tokenIntrospectionEndpoint());
+		builder.addFilterAfter(postProcess(tokenIntrospectionEndpointFilter), OAuth2TokenEndpointFilter.class);
 	}
 
 	private static <B extends HttpSecurityBuilder<B>> RegisteredClientRepository getRegisteredClientRepository(B builder) {
@@ -309,6 +306,20 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 			builder.setSharedObject(OAuth2AuthorizationService.class, authorizationService);
 		}
 		return authorizationService;
+	}
+	
+	private static <B extends HttpSecurityBuilder<B>> Collection<JwtDecoder> getJwtDecoders(B builder) {
+		Collection<JwtDecoder> jwtDecoders = new ArrayList<>();
+		for (CryptoKey<? extends Key> cryptoKey : getKeySource(builder).getKeys()) {
+			if (AsymmetricKey.class.isAssignableFrom(cryptoKey.getClass())
+					&& RSAPublicKey.class.isAssignableFrom(((AsymmetricKey) cryptoKey).getPublicKey().getClass())) {
+				jwtDecoders.add(NimbusJwtDecoder
+						.withPublicKey((RSAPublicKey) ((AsymmetricKey) cryptoKey).getPublicKey()).build());
+			} else if (SymmetricKey.class.isAssignableFrom(cryptoKey.getClass())) {
+				jwtDecoders.add(NimbusJwtDecoder.withSecretKey(((SymmetricKey) cryptoKey).getKey()).build());
+			}
+		}
+		return jwtDecoders;
 	}
 
 	private static <B extends HttpSecurityBuilder<B>> OAuth2AuthorizationService getAuthorizationServiceBean(B builder) {

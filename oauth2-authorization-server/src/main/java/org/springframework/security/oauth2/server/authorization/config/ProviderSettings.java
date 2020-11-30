@@ -32,6 +32,7 @@ public class ProviderSettings extends Settings {
 	public static final String TOKEN_ENDPOINT = PROVIDER_SETTING_BASE.concat("token-endpoint");
 	public static final String JWKS_ENDPOINT = PROVIDER_SETTING_BASE.concat("jwks-endpoint");
 	public static final String TOKEN_REVOCATION_ENDPOINT = PROVIDER_SETTING_BASE.concat("token-revocation-endpoint");
+	public static final String TOKEN_INTROSPECTION_ENDPOINT = PROVIDER_SETTING_BASE.concat("token-introspection-endpoint");
 
 	/**
 	 * Constructs a {@code ProviderSettings}.
@@ -143,6 +144,25 @@ public class ProviderSettings extends Settings {
 	public ProviderSettings tokenRevocationEndpoint(String tokenRevocationEndpoint) {
 		return setting(TOKEN_REVOCATION_ENDPOINT, tokenRevocationEndpoint);
 	}
+	
+	/**
+	 * Returns the Provider's OAuth 2.0 Token Introspection endpoint. The default is {@code /oauth2/introspect}.
+	 *
+	 * @return the Token Introspection endpoint
+	 */
+	public String tokenIntrospectionEndpoint() {
+		return setting(TOKEN_INTROSPECTION_ENDPOINT);
+	}
+	
+	/**
+	 * Sets the Provider's OAuth 2.0 Token Introspection endpoint.
+	 *
+	 * @param tokenIntrospectionEndpoint the Token Revocation endpoint
+	 * @return the {@link ProviderSettings} for further configuration
+	 */
+	public ProviderSettings tokenIntrospectionEndpoint(String tokenIntrospectionEndpoint) {
+		return setting(TOKEN_INTROSPECTION_ENDPOINT, tokenIntrospectionEndpoint);
+	}
 
 	protected static Map<String, Object> defaultSettings() {
 		Map<String, Object> settings = new HashMap<>();
@@ -150,6 +170,7 @@ public class ProviderSettings extends Settings {
 		settings.put(TOKEN_ENDPOINT, "/oauth2/token");
 		settings.put(JWKS_ENDPOINT, "/oauth2/jwks");
 		settings.put(TOKEN_REVOCATION_ENDPOINT, "/oauth2/revoke");
+		settings.put(TOKEN_INTROSPECTION_ENDPOINT, "/oauth2/introspect");
 		return settings;
 	}
 }
