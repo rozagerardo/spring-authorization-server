@@ -28,11 +28,13 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A container for OAuth 2.0 Tokens.
  *
  * @author Joe Grandja
+ * @author Gerardo Roza
  * @since 0.0.3
  * @see OAuth2Authorization
  * @see OAuth2TokenMetadata
@@ -87,19 +89,15 @@ public class OAuth2Tokens implements Serializable {
 	/**
 	 * Returns the token specified by {@code token}.
 	 *
-	 * @param token the token
-	 * @param <T> the type of the token
-	 * @return the token, or {@code null} if not available
+	 * @param token the token value
+	 * @return an optional wrapped {@code AbstractOAuth2Token}
 	 */
-	@Nullable
-	@SuppressWarnings("unchecked")
-	public <T extends AbstractOAuth2Token> T getToken(String token) {
+	public Optional<AbstractOAuth2Token> getToken(String token) {
 		Assert.hasText(token, "token cannot be empty");
-		OAuth2TokenHolder tokenHolder = this.tokens.values().stream()
+		return this.tokens.values().stream()
 				.filter(holder -> holder.getToken().getTokenValue().equals(token))
-				.findFirst()
-				.orElse(null);
-		return tokenHolder != null ? (T) tokenHolder.getToken() : null;
+				.map(OAuth2TokenHolder::getToken)
+				.findFirst();
 	}
 
 	/**

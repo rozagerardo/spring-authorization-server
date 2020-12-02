@@ -35,7 +35,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.ExceptionHandlingConfigurer;
+import org.springframework.security.crypto.key.AsymmetricKey;
+import org.springframework.security.crypto.key.CryptoKey;
+import org.springframework.security.crypto.key.CryptoKeySource;
+import org.springframework.security.crypto.key.SymmetricKey;
+import org.springframework.security.oauth2.jose.jws.NimbusJwsEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwsEncoder;
 import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
@@ -43,6 +50,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenIntrospectionAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenRevocationAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
@@ -51,6 +59,7 @@ import org.springframework.security.oauth2.server.authorization.web.NimbusJwkSet
 import org.springframework.security.oauth2.server.authorization.web.OAuth2AuthorizationEndpointFilter;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2ClientAuthenticationFilter;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenEndpointFilter;
+import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenIntrospectionEndpointFilter;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenRevocationEndpointFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
@@ -65,17 +74,29 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
+import java.net.URI;
+import java.security.Key;
+import java.security.interfaces.RSAPublicKey;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * An {@link AbstractHttpConfigurer} for OAuth 2.0 Authorization Server support.
  *
  * @author Joe Grandja
  * @author Daniel Garnier-Moiroux
+ * @author Gerardo Roza
  * @since 0.0.1
  * @see AbstractHttpConfigurer
  * @see RegisteredClientRepository
  * @see OAuth2AuthorizationService
  * @see OAuth2AuthorizationEndpointFilter
  * @see OAuth2TokenEndpointFilter
+ * @see OAuth2TokenIntrospectionEndpointFilter
  * @see OAuth2TokenRevocationEndpointFilter
  * @see NimbusJwkSetEndpointFilter
  * @see OidcProviderConfigurationEndpointFilter
@@ -93,6 +114,8 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 					HttpMethod.POST.name()));
 	private final RequestMatcher tokenEndpointMatcher = new AntPathRequestMatcher(
 			OAuth2TokenEndpointFilter.DEFAULT_TOKEN_ENDPOINT_URI, HttpMethod.POST.name());
+	private final RequestMatcher tokenIntrospectionMatcher = new AntPathRequestMatcher(
+			OAuth2TokenIntrospectionEndpointFilter.DEFAULT_TOKEN_INTROSPECTION_ENDPOINT_URI, HttpMethod.POST.name());
 	private final RequestMatcher tokenRevocationEndpointMatcher = new AntPathRequestMatcher(
 			OAuth2TokenRevocationEndpointFilter.DEFAULT_TOKEN_REVOCATION_ENDPOINT_URI, HttpMethod.POST.name());
 	private final RequestMatcher jwkSetEndpointMatcher = new AntPathRequestMatcher(
@@ -145,7 +168,7 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		// TODO Initialize matchers using URI's from ProviderSettings
 		return Arrays.asList(this.authorizationEndpointMatcher, this.tokenEndpointMatcher,
 				this.tokenRevocationEndpointMatcher, this.jwkSetEndpointMatcher,
-				this.oidcProviderConfigurationEndpointMatcher);
+				this.oidcProviderConfigurationEndpointMatcher, this.tokenIntrospectionMatcher);
 	}
 
 	@Override
@@ -184,11 +207,17 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 						getAuthorizationService(builder));
 		builder.authenticationProvider(postProcess(tokenRevocationAuthenticationProvider));
 
+		OAuth2TokenIntrospectionAuthenticationProvider tokenIntrospectionAuthenticationProvider =
+				new OAuth2TokenIntrospectionAuthenticationProvider(
+						getAuthorizationService(builder), getJwtDecoders(builder));
+		builder.authenticationProvider(postProcess(tokenIntrospectionAuthenticationProvider));
+
 		ExceptionHandlingConfigurer<B> exceptionHandling = builder.getConfigurer(ExceptionHandlingConfigurer.class);
 		if (exceptionHandling != null) {
 			LinkedHashMap<RequestMatcher, AuthenticationEntryPoint> entryPoints = new LinkedHashMap<>();
 			entryPoints.put(
-					new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher),
+					new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher,
+							this.tokenIntrospectionMatcher),
 					new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED));
 			DelegatingAuthenticationEntryPoint authenticationEntryPoint =
 					new DelegatingAuthenticationEntryPoint(entryPoints);
@@ -222,7 +251,8 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		OAuth2ClientAuthenticationFilter clientAuthenticationFilter =
 				new OAuth2ClientAuthenticationFilter(
 						authenticationManager,
-						new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher));
+						new OrRequestMatcher(this.tokenEndpointMatcher, this.tokenRevocationEndpointMatcher,
+								this.tokenIntrospectionMatcher));
 		builder.addFilterAfter(postProcess(clientAuthenticationFilter), AbstractPreAuthenticatedProcessingFilter.class);
 
 		OAuth2AuthorizationEndpointFilter authorizationEndpointFilter =
@@ -243,6 +273,12 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 						authenticationManager,
 						providerSettings.tokenRevocationEndpoint());
 		builder.addFilterAfter(postProcess(tokenRevocationEndpointFilter), OAuth2TokenEndpointFilter.class);
+
+		OAuth2TokenIntrospectionEndpointFilter tokenIntrospectionEndpointFilter =
+				new OAuth2TokenIntrospectionEndpointFilter(
+						authenticationManager,
+						providerSettings.tokenIntrospectionEndpoint());
+		builder.addFilterAfter(postProcess(tokenIntrospectionEndpointFilter), OAuth2TokenEndpointFilter.class);
 	}
 
 	private static void validateProviderSettings(ProviderSettings providerSettings) {
@@ -274,6 +310,20 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 			builder.setSharedObject(OAuth2AuthorizationService.class, authorizationService);
 		}
 		return authorizationService;
+	}
+
+	private static <B extends HttpSecurityBuilder<B>> Collection<JwtDecoder> getJwtDecoders(B builder) {
+		Collection<JwtDecoder> jwtDecoders = new ArrayList<>();
+		for (CryptoKey<? extends Key> cryptoKey : getKeySource(builder).getKeys()) {
+			if (AsymmetricKey.class.isAssignableFrom(cryptoKey.getClass())
+					&& RSAPublicKey.class.isAssignableFrom(((AsymmetricKey) cryptoKey).getPublicKey().getClass())) {
+				jwtDecoders.add(NimbusJwtDecoder
+						.withPublicKey((RSAPublicKey) ((AsymmetricKey) cryptoKey).getPublicKey()).build());
+			} else if (SymmetricKey.class.isAssignableFrom(cryptoKey.getClass())) {
+				jwtDecoders.add(NimbusJwtDecoder.withSecretKey(((SymmetricKey) cryptoKey).getKey()).build());
+			}
+		}
+		return jwtDecoders;
 	}
 
 	private static <B extends HttpSecurityBuilder<B>> JwtEncoder getJwtEncoder(B builder) {

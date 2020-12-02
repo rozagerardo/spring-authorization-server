@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * @author Krisztian Toth
  * @author Joe Grandja
+ * @author Gerardo Roza
  */
 public class InMemoryOAuth2AuthorizationServiceTests {
 	private static final RegisteredClient REGISTERED_CLIENT = TestRegisteredClients.registeredClient().build();
@@ -165,9 +167,72 @@ public class InMemoryOAuth2AuthorizationServiceTests {
 	}
 
 	@Test
+	public void findByTokenWhenWrongTokenTypeThenNotFound() {
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("refresh-token", Instant.now());
+		OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(REGISTERED_CLIENT)
+				.principalName(PRINCIPAL_NAME)
+				.tokens(OAuth2Tokens.builder().refreshToken(refreshToken).build())
+				.build();
+		this.authorizationService.save(authorization);
+
+		OAuth2Authorization result = this.authorizationService.findByToken(
+				refreshToken.getTokenValue(), TokenType.ACCESS_TOKEN);
+		assertThat(result).isNull();
+	}
+
+	@Test
 	public void findByTokenWhenTokenDoesNotExistThenNull() {
 		OAuth2Authorization result = this.authorizationService.findByToken(
 				"access-token", TokenType.ACCESS_TOKEN);
 		assertThat(result).isNull();
+	}
+
+	@Test
+	public void findByTokenWithHintWhenSearchTokenWithMatchingTokenTypeThenFound() {
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("refresh-token", Instant.now());
+		OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(REGISTERED_CLIENT)
+				.principalName(PRINCIPAL_NAME)
+				.tokens(OAuth2Tokens.builder().refreshToken(refreshToken).build())
+				.build();
+		this.authorizationService.save(authorization);
+
+		Optional<OAuth2Authorization> result = this.authorizationService.findByTokenWithHint(
+				refreshToken.getTokenValue(), Optional.of(TokenType.REFRESH_TOKEN));
+		assertThat(result).hasValue(authorization);
+	}
+
+	@Test
+	public void findByTokenWithHintWhenSearchTokenWithWrongTokenTypeThenFound() {
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("refresh-token", Instant.now());
+		OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(REGISTERED_CLIENT)
+				.principalName(PRINCIPAL_NAME)
+				.tokens(OAuth2Tokens.builder().refreshToken(refreshToken).build())
+				.build();
+		this.authorizationService.save(authorization);
+
+		Optional<OAuth2Authorization> result = this.authorizationService.findByTokenWithHint(
+				refreshToken.getTokenValue(), Optional.of(TokenType.ACCESS_TOKEN));
+		assertThat(result).hasValue(authorization);
+	}
+
+	@Test
+	public void findByTokenWithHintWhenSearchTokenWithEmptyTokenTypeThenFound() {
+		OAuth2RefreshToken refreshToken = new OAuth2RefreshToken("refresh-token", Instant.now());
+		OAuth2Authorization authorization = OAuth2Authorization.withRegisteredClient(REGISTERED_CLIENT)
+				.principalName(PRINCIPAL_NAME)
+				.tokens(OAuth2Tokens.builder().refreshToken(refreshToken).build())
+				.build();
+		this.authorizationService.save(authorization);
+
+		Optional<OAuth2Authorization> result = this.authorizationService.findByTokenWithHint(
+				refreshToken.getTokenValue(), Optional.empty());
+		assertThat(result).hasValue(authorization);
+	}
+
+	@Test
+	public void findByTokenWithHintWhenTokenDoesNotExistThenEmptyResult() {
+		Optional<OAuth2Authorization> result = this.authorizationService.findByTokenWithHint(
+				"refresh-token", Optional.of(TokenType.REFRESH_TOKEN));
+		assertThat(result).isEmpty();
 	}
 }
