@@ -62,8 +62,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import com.nimbusds.oauth2.sdk.token.AccessTokenType;
-
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
@@ -152,7 +150,7 @@ public class OAuth2TokenIntrospectionTests {
 				.andExpect(jsonPath("$.active", is(true)))
 				.andExpect(jsonPath("$.client_id", is("client-1")))
 				.andExpect(jsonPath("$.scope", allOf(containsString("openid"), containsString("profile"), containsString("email"))))
-				.andExpect(jsonPath("$.token_type", is(AccessTokenType.BEARER.getValue())))
+				.andExpect(jsonPath("$.token_type", is(OAuth2AccessToken.TokenType.BEARER.getValue())))
 				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
 				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
 		// @formatter:on
@@ -189,7 +187,7 @@ public class OAuth2TokenIntrospectionTests {
 				.andExpect(jsonPath("$.sub", is("user-1")))
 				.andExpect(jsonPath("$.aud", contains("client-1")))
 				.andExpect(jsonPath("$.iss", matchesPattern(URL_PATTERN_REGEX)))
-				.andExpect(jsonPath("$.token_type", is(AccessTokenType.BEARER.getValue())))
+				.andExpect(jsonPath("$.token_type", is(OAuth2AccessToken.TokenType.BEARER.getValue())))
 				.andExpect(jsonPath("$.client_id").isString())
 				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
 				.andExpect(jsonPath("$.nbf", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
