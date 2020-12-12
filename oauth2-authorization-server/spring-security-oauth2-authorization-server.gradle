@@ -15,7 +15,6 @@ dependencies {
 	testCompile 'org.assertj:assertj-core'
 	testCompile 'org.mockito:mockito-core'
 	testCompile 'com.jayway.jsonpath:json-path'
-	testCompile 'org.hamcrest:hamcrest:2.2'
 
 	provided 'javax.servlet:javax.servlet-api'
 }

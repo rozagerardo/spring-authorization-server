@@ -15,13 +15,6 @@
  */
 package org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization;
 
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -62,7 +55,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -117,10 +109,10 @@ public class OAuth2TokenIntrospectionTests {
 						.params(getTokenIntrospectionRequestParameters(token, tokenType))
 						.with(httpBasic(registeredClient.getClientId(), registeredClient.getClientSecret())))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.active", is(true)))
-				.andExpect(jsonPath("$.client_id", is("client-1")))
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
+				.andExpect(jsonPath("$.active").value(true))
+				.andExpect(jsonPath("$.client_id").value("client-1"))
+				.andExpect(jsonPath("$.iat").isNotEmpty())
+				.andExpect(jsonPath("$.exp").isNotEmpty());
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
@@ -147,12 +139,12 @@ public class OAuth2TokenIntrospectionTests {
 						.params(getTokenIntrospectionRequestParameters(token, tokenType))
 						.with(httpBasic(registeredClient.getClientId(), registeredClient.getClientSecret())))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.active", is(true)))
-				.andExpect(jsonPath("$.client_id", is("client-1")))
-				.andExpect(jsonPath("$.scope", allOf(containsString("openid"), containsString("profile"), containsString("email"))))
-				.andExpect(jsonPath("$.token_type", is(OAuth2AccessToken.TokenType.BEARER.getValue())))
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
+				.andExpect(jsonPath("$.active").value(true))
+				.andExpect(jsonPath("$.client_id").value("client-1"))
+				.andExpect(jsonPath("$.scope").isNotEmpty())
+				.andExpect(jsonPath("$.token_type").value(OAuth2AccessToken.TokenType.BEARER.getValue()))
+				.andExpect(jsonPath("$.iat").isNotEmpty())
+				.andExpect(jsonPath("$.exp").isNotEmpty());
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
@@ -182,16 +174,16 @@ public class OAuth2TokenIntrospectionTests {
 						.params(getTokenIntrospectionRequestParameters(token, tokenType))
 						.with(httpBasic(registeredClient.getClientId(), registeredClient.getClientSecret())))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.active", is(true)))
-				.andExpect(jsonPath("$.scope", allOf(containsString("openid"), containsString("profile"), containsString("email"))))
-				.andExpect(jsonPath("$.sub", is("user-1")))
-				.andExpect(jsonPath("$.aud", contains("client-1")))
-				.andExpect(jsonPath("$.iss", matchesPattern(URL_PATTERN_REGEX)))
-				.andExpect(jsonPath("$.token_type", is(OAuth2AccessToken.TokenType.BEARER.getValue())))
+				.andExpect(jsonPath("$.active").value(true))
+				.andExpect(jsonPath("$.scope").isNotEmpty())
+				.andExpect(jsonPath("$.sub").value("user-1"))
+				.andExpect(jsonPath("$.aud").value("client-1"))
+				.andExpect(jsonPath("$.iss").isNotEmpty())
+				.andExpect(jsonPath("$.token_type").value(OAuth2AccessToken.TokenType.BEARER.getValue()))
 				.andExpect(jsonPath("$.client_id").isString())
-				.andExpect(jsonPath("$.iat", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
-				.andExpect(jsonPath("$.nbf", lessThanOrEqualTo(Instant.now().getEpochSecond()), Long.class))
-				.andExpect(jsonPath("$.exp", greaterThanOrEqualTo(Instant.now().getEpochSecond()), Long.class));
+				.andExpect(jsonPath("$.iat").isNotEmpty())
+				.andExpect(jsonPath("$.nbf").isNotEmpty())
+				.andExpect(jsonPath("$.exp").isNotEmpty());
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
