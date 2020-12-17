@@ -56,7 +56,6 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.util.Collections;
-import java.util.Optional;
 
 /**
  * Integration tests for the OAuth 2.0 Token Introspection endpoint.
@@ -100,8 +99,7 @@ public class OAuth2TokenIntrospectionTests {
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2RefreshToken token = authorization.getTokens().getRefreshToken();
 		TokenType tokenType = TokenType.REFRESH_TOKEN;
-		when(authorizationService.findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType))))
-				.thenReturn(Optional.of(authorization));
+		when(authorizationService.findByToken(eq(token.getTokenValue()), eq(tokenType))).thenReturn(authorization);
 
 		// @formatter:off
 		this.mvc.perform(
@@ -116,7 +114,7 @@ public class OAuth2TokenIntrospectionTests {
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
-		verify(authorizationService).findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType)));
+		verify(authorizationService).findByToken(eq(token.getTokenValue()), eq(tokenType));
 	}
 
 	@Test
@@ -130,8 +128,7 @@ public class OAuth2TokenIntrospectionTests {
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken token = authorization.getTokens().getAccessToken();
 		TokenType tokenType = TokenType.ACCESS_TOKEN;
-		when(authorizationService.findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType))))
-				.thenReturn(Optional.of(authorization));
+		when(authorizationService.findByToken(eq(token.getTokenValue()), eq(tokenType))).thenReturn(authorization);
 
 		// @formatter:off
 		this.mvc.perform(
@@ -148,7 +145,7 @@ public class OAuth2TokenIntrospectionTests {
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
-		verify(authorizationService).findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType)));
+		verify(authorizationService).findByToken(eq(token.getTokenValue()), eq(tokenType));
 	}
 
 	@Test
@@ -165,8 +162,7 @@ public class OAuth2TokenIntrospectionTests {
 				.authorization(registeredClient, Collections.emptyMap(), jwtEncoder).build();
 		OAuth2AccessToken token = authorization.getTokens().getAccessToken();
 		TokenType tokenType = TokenType.ACCESS_TOKEN;
-		when(authorizationService.findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType))))
-				.thenReturn(Optional.of(authorization));
+		when(authorizationService.findByToken(eq(token.getTokenValue()), eq(tokenType))).thenReturn(authorization);
 
 		// @formatter:off
 		this.mvc.perform(
@@ -187,7 +183,7 @@ public class OAuth2TokenIntrospectionTests {
 		// @formatter:on
 
 		verify(registeredClientRepository).findByClientId(eq(registeredClient.getClientId()));
-		verify(authorizationService).findByTokenWithHint(eq(token.getTokenValue()), eq(Optional.of(tokenType)));
+		verify(authorizationService).findByToken(eq(token.getTokenValue()), eq(tokenType));
 	}
 
 	private static MultiValueMap<String, String> getTokenIntrospectionRequestParameters(AbstractOAuth2Token token,

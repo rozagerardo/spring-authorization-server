@@ -43,7 +43,6 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
-import java.util.Optional;
 
 /**
  * Tests for {@link OAuth2TokenIntrospectionAuthenticationProvider}.
@@ -132,8 +131,7 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations
 				.authorization(TestRegisteredClients.registeredClient2().build()).build();
-		when(this.authorizationService.findByTokenWithHint(eq("token"), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-				.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq("token"), eq(TokenType.ACCESS_TOKEN))).thenReturn(authorization);
 
 		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
 		OAuth2TokenIntrospectionAuthenticationToken authentication = new OAuth2TokenIntrospectionAuthenticationToken(
@@ -151,10 +149,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken accessToken = authorization.getTokens().getAccessToken();
 		authorization = OAuth2AuthenticationProviderUtils.invalidate(authorization, accessToken);
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 
 		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
 		OAuth2TokenIntrospectionAuthenticationToken authentication = new OAuth2TokenIntrospectionAuthenticationToken(
@@ -171,10 +167,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken accessToken = authorization.getTokens().getAccessToken();
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 		when(this.jwtDecoder.decode(eq(accessToken.getTokenValue()))).thenThrow(JwtException.class);
 
 		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
@@ -198,10 +192,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(accessToken).build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).tokens(tokens)
 				.build();
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 		when(this.jwtDecoder.decode(eq(accessToken.getTokenValue()))).thenThrow(JwtException.class);
 
 		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
@@ -220,10 +212,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken accessToken = authorization.getTokens().getAccessToken();
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 		Jwt jwt = Jwt.withTokenValue(accessToken.getTokenValue()).header("customHeader", "customHeaderValue")
 				.expiresAt(accessToken.getExpiresAt()).issuedAt(accessToken.getIssuedAt())
 				.notBefore(accessToken.getIssuedAt()).build();
@@ -245,10 +235,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken accessToken = authorization.getTokens().getAccessToken();
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 		Instant expiresAt = Instant.now().minus(Duration.ofHours(1));
 		Instant issuedAt = expiresAt.minus(Duration.ofHours(1));
 		Jwt jwt = Jwt.withTokenValue(accessToken.getTokenValue()).header("customHeader", "customHeaderValue")
@@ -271,10 +259,8 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2Authorization authorization = TestOAuth2Authorizations.authorization(registeredClient).build();
 		OAuth2AccessToken accessToken = authorization.getTokens().getAccessToken();
-		when(
-				this.authorizationService
-						.findByTokenWithHint(eq(accessToken.getTokenValue()), eq(Optional.of(TokenType.ACCESS_TOKEN))))
-								.thenReturn(Optional.of(authorization));
+		when(this.authorizationService.findByToken(eq(accessToken.getTokenValue()), eq(TokenType.ACCESS_TOKEN)))
+				.thenReturn(authorization);
 		Jwt jwt = Jwt.withTokenValue(accessToken.getTokenValue()).header("customHeader", "customHeaderValue")
 				.expiresAt(accessToken.getExpiresAt()).issuedAt(accessToken.getIssuedAt())
 				.notBefore(accessToken.getExpiresAt()).build();
