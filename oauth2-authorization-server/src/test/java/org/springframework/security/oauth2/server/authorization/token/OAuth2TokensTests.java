@@ -33,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests for {@link OAuth2Tokens}.
  *
  * @author Joe Grandja
- * @author Gerardo Roza
  */
 public class OAuth2TokensTests {
 	private OAuth2AccessToken accessToken;
@@ -107,12 +106,6 @@ public class OAuth2TokensTests {
 		assertThatThrownBy(() -> OAuth2Tokens.from(null))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessage("tokens cannot be null");
-	}
-
-	@Test
-	public void getTokenWhenUsingNullTokenTypeThenThrowIllegalArgumentException() {
-		assertThatThrownBy(() -> OAuth2Tokens.builder().build().getToken((String) null))
-				.isInstanceOf(IllegalArgumentException.class).hasMessage("token cannot be empty");
 	}
 
 	@Test
@@ -198,14 +191,5 @@ public class OAuth2TokensTests {
 				this.accessToken.getExpiresAt(),
 				this.accessToken.getScopes());
 		assertThat(tokens.getTokenMetadata(otherAccessToken)).isNull();
-	}
-
-	@Test
-	public void getTokenWhenUsingTokenValueAndTokenTypeThenTokensRetrieved() {
-		OAuth2Tokens tokens = OAuth2Tokens.builder().accessToken(this.accessToken).refreshToken(this.refreshToken)
-				.token(this.idToken).build();
-		assertThat(tokens.getToken("access-token")).isPresent().contains(this.accessToken);
-		assertThat(tokens.getToken("refresh-token")).isPresent().contains(this.refreshToken);
-		assertThat(tokens.getToken("id-token")).isPresent().contains(this.idToken);
 	}
 }
