@@ -52,7 +52,7 @@ import java.util.Map;
 
 /**
  * A {@link HttpMessageConverter} for an {@link OAuth2TokenIntrospectionResponse} Token Introspection Response.
- * 
+ *
  * @author Gerardo Roza
  * @since 0.4.0
  * @see AbstractHttpMessageConverter
@@ -111,7 +111,7 @@ public class OAuth2TokenIntrospectionResponseHttpMessageConverter
 	/**
 	 * Sets the {@link Converter} used for converting the Token Introspection parameters to an
 	 * {@link OAuth2TokenIntrospectionResponse}.
-	 * 
+	 *
 	 * @param tokenIntrospectionResponseConverter the {@link Converter} used for converting to an
 	 * {@link OAuth2TokenIntrospectionResponse}
 	 */
@@ -124,7 +124,7 @@ public class OAuth2TokenIntrospectionResponseHttpMessageConverter
 	/**
 	 * Sets the {@link Converter} used for converting the {@link OAuth2TokenIntrospectionResponse} to a {@code Map} representation of
 	 * the Token Introspection Response.
-	 * 
+	 *
 	 * @param tokenIntrospectionResponseParametersConverter the {@link Converter} used for converting to a {@code Map} representation
 	 * of the Token Introspection Response
 	 */

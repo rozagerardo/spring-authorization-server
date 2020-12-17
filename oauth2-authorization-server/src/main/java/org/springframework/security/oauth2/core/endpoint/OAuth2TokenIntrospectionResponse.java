@@ -40,7 +40,7 @@ import java.util.Map;
 
 /**
  * A representation of an OAuth 2.0 Introspection Token Response.
- * 
+ *
  * @author Gerardo Roza
  * @since 0.0.4
  * @see <a target="_blank" href="https://tools.ietf.org/html/rfc7662#section-2.2">Section 2.2 - Introspection Response</a>
@@ -105,7 +105,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Adds a param field. If null is passed as value, then it removes the entry.
-		 * 
+		 *
 		 * @param key
 		 * @param value
 		 */
@@ -119,7 +119,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'scope' field.
-		 * 
+		 *
 		 * @param scope string containing a space-separated list of scopes associated with this token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -130,7 +130,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'client_id' field.
-		 * 
+		 *
 		 * @param clientId identifier for the OAuth 2.0 client that requested this token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -141,7 +141,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'username' field.
-		 * 
+		 *
 		 * @param username Human-readable identifier for the resource owner who authorized this token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -152,7 +152,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'token_type' field.
-		 * 
+		 *
 		 * @param tokenType {@link TokenType} indicating the type of the token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -163,7 +163,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'exp' (Expiration Time) field.
-		 * 
+		 *
 		 * @param expirationTime {@link Instant} indicating when this token will expire
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -174,7 +174,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'iat' (Issued At) field.
-		 * 
+		 *
 		 * @param issuedAt {@link Instant} indicating when this token was originally issued
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -185,7 +185,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'nbf' (Not Before) field.
-		 * 
+		 *
 		 * @param notBefore {@link Instant} indicating when this token is not to be used before
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -196,7 +196,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'sub' (Subject) field.
-		 * 
+		 *
 		 * @param subject usually a machine-readable identifier of the resource owner who authorized this token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -207,7 +207,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'aud' (Audience) field.
-		 * 
+		 *
 		 * @param audience service-specific string identifier or list of string identifiers representing the intended audience for this
 		 * token
 		 * @return the {@link Builder} for further configurations
@@ -219,7 +219,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'iss' (Issuer) field.
-		 * 
+		 *
 		 * @param issuer of this token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -230,7 +230,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Populates the 'jti' (JWT ID) field.
-		 * 
+		 *
 		 * @param jwtId identifier for the token
 		 * @return the {@link Builder} for further configurations
 		 */
@@ -241,7 +241,7 @@ public class OAuth2TokenIntrospectionResponse {
 
 		/**
 		 * Build the {@link OAuth2TokenIntrospectionResponse}
-		 * 
+		 *
 		 * @return The constructed {@link OAuth2TokenIntrospectionResponse}
 		 */
 		public OAuth2TokenIntrospectionResponse build() {
