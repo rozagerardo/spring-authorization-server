@@ -100,8 +100,7 @@ public class OAuth2TokenIntrospectionAuthenticationProvider implements Authentic
 				throw new IntrospectionTokenException("Invalid client");
 			}
 
-			AbstractOAuth2Token token = authorization.getTokens().getToken(tokenIntrospectionAuthentication.getTokenValue())
-					.get();
+			AbstractOAuth2Token token = authorization.getTokens().getToken(tokenIntrospectionAuthentication.getTokenValue());
 
 			if (authorization.getTokens().getTokenMetadata(token).isInvalidated()) {
 				throw new IntrospectionTokenException("Token has been invalidated");
