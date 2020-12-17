@@ -26,7 +26,6 @@ public final class TokenType implements Serializable {
 	private static final long serialVersionUID = Version.SERIAL_VERSION_UID;
 	public static final TokenType ACCESS_TOKEN = new TokenType("access_token");
 	public static final TokenType REFRESH_TOKEN = new TokenType("refresh_token");
-	public static final TokenType ID_TOKEN = new TokenType("id_token");
 	public static final TokenType AUTHORIZATION_CODE = new TokenType("authorization_code");
 	private final String value;
 

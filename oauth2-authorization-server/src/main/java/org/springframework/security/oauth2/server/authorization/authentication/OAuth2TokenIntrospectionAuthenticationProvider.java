@@ -85,8 +85,6 @@ public class OAuth2TokenIntrospectionAuthenticationProvider implements Authentic
 					tokenType = TokenType.REFRESH_TOKEN;
 				} else if (TokenType.ACCESS_TOKEN.getValue().equals(tokenTypeHint)) {
 					tokenType = TokenType.ACCESS_TOKEN;
-				} else if (TokenType.ID_TOKEN.getValue().equals(tokenTypeHint)) {
-					tokenType = TokenType.ID_TOKEN;
 				} else {
 					throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes2.UNSUPPORTED_TOKEN_TYPE));
 				}
