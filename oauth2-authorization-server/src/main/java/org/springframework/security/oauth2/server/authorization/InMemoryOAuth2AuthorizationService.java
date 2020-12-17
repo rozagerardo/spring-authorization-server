@@ -20,12 +20,8 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Auth
 import org.springframework.util.Assert;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -133,27 +129,5 @@ public final class InMemoryOAuth2AuthorizationService implements OAuth2Authoriza
 		public int hashCode() {
 			return Objects.hash(this.registeredClientId, this.principalName);
 		}
-	}
-
-	@Override
-	public Optional<OAuth2Authorization> findByTokenWithHint(String token,
-			Optional<TokenType> tokenTypeHint) {
-		List<TokenType> supportedTokenTypes = new ArrayList<>(
-				Arrays.asList(
-						TokenType.ACCESS_TOKEN,
-						TokenType.REFRESH_TOKEN,
-						TokenType.ID_TOKEN,
-						new TokenType(OAuth2AuthorizationAttributeNames.STATE)));
-		tokenTypeHint.ifPresent(tType -> {
-			if (supportedTokenTypes.remove(tType))
-				supportedTokenTypes.add(0, tType);
-		});
-		for (TokenType tokenType : supportedTokenTypes) {
-			OAuth2Authorization authorization = this.findByToken(token, tokenType);
-			if (authorization != null) {
-				return Optional.of(authorization);
-			}
-		}
-		return Optional.empty();
 	}
 }

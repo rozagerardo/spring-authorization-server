@@ -40,7 +40,6 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import java.util.Collection;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -94,8 +93,10 @@ public class OAuth2TokenIntrospectionAuthenticationProvider implements Authentic
 			}
 
 			OAuth2Authorization authorization = this.authorizationService
-					.findByTokenWithHint(tokenIntrospectionAuthentication.getTokenValue(), Optional.ofNullable(tokenType))
-					.orElseThrow(() -> new IntrospectionTokenException("Token not found"));
+					.findByToken(tokenIntrospectionAuthentication.getTokenValue(), tokenType);
+			if (authorization == null) {
+				throw new IntrospectionTokenException("Token not found");
+			}
 
 			if (!registeredClient.getId().equals(authorization.getRegisteredClientId())) {
 				throw new IntrospectionTokenException("Invalid client");

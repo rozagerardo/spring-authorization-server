@@ -17,8 +17,6 @@ package org.springframework.security.oauth2.server.authorization;
 
 import org.springframework.lang.Nullable;
 
-import java.util.Optional;
-
 /**
  * Implementations of this interface are responsible for the management
  * of {@link OAuth2Authorization OAuth 2.0 Authorization(s)}.
@@ -53,18 +51,4 @@ public interface OAuth2AuthorizationService {
 	 */
 	@Nullable
 	OAuth2Authorization findByToken(String token, @Nullable TokenType tokenType);
-
-	/**
-	 * Returns the {@link OAuth2Authorization} containing the provided {@code token},
-	 * or {@code null} if not found.
-	 *
-	 * The optional {@code tokenTypeHint} is used only as a hint; if it is unable to locate the token using the given hint,
-	 * it will extend its search across all of its supported token types.
-	 *
-	 * @param token the token credential
-	 * @param tokenTypeHint an optional {@link TokenType token type}
-	 * @return an optional {@link OAuth2Authorization}
-	 */
-	Optional<OAuth2Authorization> findByTokenWithHint(String token, Optional<TokenType> tokenTypeHint);
-
 }
