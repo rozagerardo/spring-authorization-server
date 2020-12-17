@@ -77,19 +77,16 @@ public class OAuth2TokenIntrospectionAuthenticationProvider implements Authentic
 		RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
 
 		TokenType tokenType = null;
+		String tokenTypeHint = tokenIntrospectionAuthentication.getTokenTypeHint();
+		if (StringUtils.hasText(tokenTypeHint)) {
+			if (TokenType.REFRESH_TOKEN.getValue().equals(tokenTypeHint)) {
+				tokenType = TokenType.REFRESH_TOKEN;
+			} else if (TokenType.ACCESS_TOKEN.getValue().equals(tokenTypeHint)) {
+				tokenType = TokenType.ACCESS_TOKEN;
+			}
+		}
 
 		try {
-			String tokenTypeHint = tokenIntrospectionAuthentication.getTokenTypeHint();
-			if (StringUtils.hasText(tokenTypeHint)) {
-				if (TokenType.REFRESH_TOKEN.getValue().equals(tokenTypeHint)) {
-					tokenType = TokenType.REFRESH_TOKEN;
-				} else if (TokenType.ACCESS_TOKEN.getValue().equals(tokenTypeHint)) {
-					tokenType = TokenType.ACCESS_TOKEN;
-				} else {
-					throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes2.UNSUPPORTED_TOKEN_TYPE));
-				}
-			}
-
 			OAuth2Authorization authorization = this.authorizationService
 					.findByToken(tokenIntrospectionAuthentication.getTokenValue(), tokenType);
 			if (authorization == null) {
