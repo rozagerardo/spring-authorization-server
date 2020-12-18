@@ -241,7 +241,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		OAuth2TokenIntrospectionResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
-		Map<String,Object> responseMap = tokenIntrospectionResponse.getParameters();
+		Map<String, Object> responseMap = tokenIntrospectionResponse.getParameters();
 		// @formatter:off
 		assertThat(responseMap).containsOnly(
 				entry("active", true),
@@ -275,7 +275,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		OAuth2TokenIntrospectionResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
-		Map<String,Object> responseMap = tokenIntrospectionResponse.getParameters();
+		Map<String, Object> responseMap = tokenIntrospectionResponse.getParameters();
 		// @formatter:off
 		assertThat(responseMap).contains(
 				entry("active", true),
@@ -315,7 +315,7 @@ public class OAuth2TokenIntrospectionEndpointFilterTests {
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
 		OAuth2TokenIntrospectionResponse tokenIntrospectionResponse = readTokenIntrospectionResponse(response);
 
-		Map<String,Object> responseMap = tokenIntrospectionResponse.getParameters();
+		Map<String, Object> responseMap = tokenIntrospectionResponse.getParameters();
 		// @formatter:off
 		assertThat(responseMap).containsOnly(entry("active", true),
 				entry("client_id", clientId),

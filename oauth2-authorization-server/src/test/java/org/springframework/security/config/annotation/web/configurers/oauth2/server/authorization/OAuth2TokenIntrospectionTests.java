@@ -63,8 +63,6 @@ import java.util.Collections;
  * @author Gerardo Roza
  */
 public class OAuth2TokenIntrospectionTests {
-
-	private static final String URL_PATTERN_REGEX = "^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
 	private static RegisteredClientRepository registeredClientRepository;
 	private static OAuth2AuthorizationService authorizationService;
 	private static CryptoKeySource keySource;

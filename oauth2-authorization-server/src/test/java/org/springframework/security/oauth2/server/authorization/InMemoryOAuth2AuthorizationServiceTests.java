@@ -26,7 +26,6 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,7 +35,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * @author Krisztian Toth
  * @author Joe Grandja
- * @author Gerardo Roza
  */
 public class InMemoryOAuth2AuthorizationServiceTests {
 	private static final RegisteredClient REGISTERED_CLIENT = TestRegisteredClients.registeredClient().build();

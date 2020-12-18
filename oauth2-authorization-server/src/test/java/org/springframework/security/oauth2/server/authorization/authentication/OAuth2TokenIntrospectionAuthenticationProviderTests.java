@@ -28,7 +28,6 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
-import org.springframework.security.oauth2.core.OAuth2ErrorCodes2;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
@@ -107,11 +106,11 @@ public class OAuth2TokenIntrospectionAuthenticationProviderTests {
 		RegisteredClient registeredClient = TestRegisteredClients.registeredClient().build();
 		OAuth2ClientAuthenticationToken clientPrincipal = new OAuth2ClientAuthenticationToken(registeredClient);
 		OAuth2TokenIntrospectionAuthenticationToken authentication = new OAuth2TokenIntrospectionAuthenticationToken(
-				"token", clientPrincipal, OAuth2ErrorCodes2.UNSUPPORTED_TOKEN_TYPE);
-		assertThatThrownBy(() -> this.authenticationProvider.authenticate(authentication))
-				.isInstanceOf(OAuth2AuthenticationException.class)
-				.extracting(ex -> ((OAuth2AuthenticationException) ex).getError()).extracting("errorCode")
-				.isEqualTo(OAuth2ErrorCodes2.UNSUPPORTED_TOKEN_TYPE);
+				"token", clientPrincipal, "unsupportedTokenType");
+		OAuth2TokenIntrospectionAuthenticationToken authenticationResult = (OAuth2TokenIntrospectionAuthenticationToken) this.authenticationProvider
+				.authenticate(authentication);
+		assertThat(authenticationResult.isAuthenticated()).isTrue();
+		assertThat(authenticationResult.isTokenActive()).isFalse();
 	}
 
 	@Test
